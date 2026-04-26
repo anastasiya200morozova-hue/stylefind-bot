@@ -57,6 +57,10 @@ export function registerCallbackHandler(bot: TelegramBot): void {
         if (itemId) await handleRemoveFromCapsule(bot, chatId, itemId);
       } else if (data === 'download_pdf') {
         await handleDownloadPdf(bot, chatId, telegramId);
+      } else if (data.startsWith('add_url:')) {
+        await handleAddUrl(bot, chatId, telegramId, data);
+      } else if (data === 'cancel_url') {
+        await bot.sendMessage(chatId, 'окей, не добавляем 👌');
       }
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err);
@@ -64,6 +68,47 @@ export function registerCallbackHandler(bot: TelegramBot): void {
       await bot.sendMessage(chatId, '❌ Что-то пошло не так. Попробуй ещё раз.');
     }
   });
+}
+
+async function handleAddUrl(bot: TelegramBot, chatId: number, telegramId: number, data: string) {
+  // add_url:url:productId:source:name:price:imageUrl
+  const parts = data.split(':');
+  if (parts.length < 7) return;
+  const [, ...rest] = parts;
+  const imageUrl = decodeURIComponent(rest[rest.length - 1]);
+  const price = parseInt(rest[rest.length - 2], 10) || 0;
+  const name = decodeURIComponent(rest[rest.length - 3]);
+  const source = rest[rest.length - 4] as 'wildberries' | 'lamoda';
+  const productId = rest[rest.length - 5];
+  const url = rest.slice(0, rest.length - 5).join(':');
+
+  const session = await getOrCreateSession(telegramId);
+  const clientName = session.current_client_name;
+
+  if (!clientName) {
+    await updateSession(telegramId, {
+      state: 'building_capsule',
+      current_query: {
+        type: 'text', item_type: name, color: null, style: null,
+        additional_details: null, pending_product_id: `url_${productId}`,
+        pending_source: source,
+      },
+    });
+    // Сохраняем товар временно в search_results
+    await clearSearchResults(telegramId);
+    await saveSearchResults(telegramId, session.id, [{
+      product_id: `url_${productId}`, source, name, price, url, image_url: imageUrl,
+    }]);
+    await bot.sendMessage(chatId, MESSAGES.askClientName);
+    return;
+  }
+
+  const capsule = await getOrCreateCapsule(telegramId, clientName);
+  await addCapsuleItem(capsule.id, telegramId, {
+    product_id: `url_${productId}`, source, name, price, url, image_url: imageUrl,
+  });
+  const count = await countCapsuleItems(capsule.id);
+  await bot.sendMessage(chatId, MESSAGES.addedToCapsule(clientName, count), { parse_mode: 'Markdown' });
 }
 
 async function handleConfirmQuery(bot: TelegramBot, chatId: number) {

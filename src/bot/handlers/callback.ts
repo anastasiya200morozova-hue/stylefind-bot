@@ -1,7 +1,7 @@
 import type TelegramBot from 'node-telegram-bot-api';
 import { isAuthorized } from '../../utils/auth';
 import { MESSAGES } from '../messages';
-import { segmentKeyboard, productKeyboard, afterAddKeyboard, sizeKeyboard } from '../keyboards';
+import { segmentKeyboard, productKeyboard, afterAddKeyboard, sizeKeyboard, detectSizeCategory } from '../keyboards';
 import { searchWildberries } from '../../services/wildberries';
 import { searchLamoda } from '../../services/lamoda';
 import { generateCapsulePDF } from '../../services/pdf';
@@ -48,9 +48,19 @@ export function registerCallbackHandler(bot: TelegramBot): void {
       } else if (data.startsWith('segment_')) {
         const segment = data.replace('segment_', '') as Segment;
         await updateSession(telegramId, { state: 'choosing_size', current_segment: segment });
-        await bot.sendMessage(chatId, 'выбери размер или пропусти 👇', {
-          reply_markup: sizeKeyboard(),
-        });
+        const session = await getOrCreateSession(telegramId);
+        const query = session.current_query as unknown as SearchQuery | null;
+        const category = detectSizeCategory(query?.item_type ?? '');
+        const keyboard = sizeKeyboard(category);
+        if (!keyboard) {
+          // Для аксессуаров размер не нужен — сразу ищем
+          await handleSegment(bot, chatId, telegramId, segment);
+        } else {
+          const hint = category === 'shoes' ? 'размер обуви 👟' : category === 'jeans' ? 'размер джинс (обхват талии) 👖' : 'размер одежды 👕';
+          await bot.sendMessage(chatId, `выбери ${hint} или пропусти 👇`, {
+            reply_markup: keyboard,
+          });
+        }
       } else if (data.startsWith('size:')) {
         const size = data.split(':')[1];
         await handleSizeAndSearch(bot, chatId, telegramId, size);

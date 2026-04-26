@@ -48,33 +48,55 @@ export function capsuleActionsKeyboard(): TelegramBot.InlineKeyboardMarkup {
   };
 }
 
-export function sizeKeyboard(): TelegramBot.InlineKeyboardMarkup {
+const SHOES = ['кроссовки','туфли','ботинки','сапоги','кеды','мокасины','лоферы','сандалии','тапки','слипоны','кроссовок','обувь','угги','балетки','мюли'];
+const JEANS = ['джинсы','джинс'];
+const TOPS = ['футболка','майка','блуза','блузка','рубашка','свитер','худи','толстовка','куртка','пальто','тренч','пуховик','жакет','пиджак','кардиган','жилет','блейзер','ветровка','бомбер','парка','водолазка','боди','туника','лонгслив','свитшот','топ','платье','сарафан','комбинезон'];
+const BOTTOMS = ['брюки','штаны','юбка','лосины','леггинсы','легинсы','шорты'];
+const NO_SIZE = ['сумка','пояс','шарф','шапка','кепка','перчатки','ремень','очки','украшения','браслет','колье','серьги'];
+
+export type SizeCategory = 'shoes' | 'jeans' | 'clothes' | 'none';
+
+export function detectSizeCategory(itemType: string): SizeCategory {
+  const t = itemType.toLowerCase();
+  if (NO_SIZE.some(w => t.includes(w))) return 'none';
+  if (SHOES.some(w => t.includes(w))) return 'shoes';
+  if (JEANS.some(w => t.includes(w))) return 'jeans';
+  if (TOPS.some(w => t.includes(w)) || BOTTOMS.some(w => t.includes(w))) return 'clothes';
+  return 'clothes'; // default
+}
+
+export function sizeKeyboard(category: SizeCategory): TelegramBot.InlineKeyboardMarkup | null {
+  if (category === 'none') return null;
+
+  if (category === 'shoes') {
+    return {
+      inline_keyboard: [
+        [{ text: '36', callback_data: 'size:36' }, { text: '37', callback_data: 'size:37' }, { text: '38', callback_data: 'size:38' }, { text: '39', callback_data: 'size:39' }],
+        [{ text: '40', callback_data: 'size:40' }, { text: '41', callback_data: 'size:41' }, { text: '42', callback_data: 'size:42' }, { text: '43', callback_data: 'size:43' }],
+        [{ text: '44', callback_data: 'size:44' }, { text: '45', callback_data: 'size:45' }, { text: '46', callback_data: 'size:46' }, { text: '47', callback_data: 'size:47' }],
+        [{ text: 'пропустить →', callback_data: 'size:skip' }],
+      ],
+    };
+  }
+
+  if (category === 'jeans') {
+    return {
+      inline_keyboard: [
+        [{ text: '25', callback_data: 'size:25' }, { text: '26', callback_data: 'size:26' }, { text: '27', callback_data: 'size:27' }, { text: '28', callback_data: 'size:28' }],
+        [{ text: '29', callback_data: 'size:29' }, { text: '30', callback_data: 'size:30' }, { text: '31', callback_data: 'size:31' }, { text: '32', callback_data: 'size:32' }],
+        [{ text: '33', callback_data: 'size:33' }, { text: '34', callback_data: 'size:34' }, { text: '36', callback_data: 'size:36' }, { text: '38', callback_data: 'size:38' }],
+        [{ text: 'пропустить →', callback_data: 'size:skip' }],
+      ],
+    };
+  }
+
+  // clothes
   return {
     inline_keyboard: [
-      [
-        { text: 'XS', callback_data: 'size:XS' },
-        { text: 'S', callback_data: 'size:S' },
-        { text: 'M', callback_data: 'size:M' },
-        { text: 'L', callback_data: 'size:L' },
-        { text: 'XL', callback_data: 'size:XL' },
-        { text: 'XXL', callback_data: 'size:XXL' },
-      ],
-      [
-        { text: '36', callback_data: 'size:36' },
-        { text: '37', callback_data: 'size:37' },
-        { text: '38', callback_data: 'size:38' },
-        { text: '39', callback_data: 'size:39' },
-        { text: '40', callback_data: 'size:40' },
-        { text: '41', callback_data: 'size:41' },
-      ],
-      [
-        { text: '42', callback_data: 'size:42' },
-        { text: '43', callback_data: 'size:43' },
-        { text: '44', callback_data: 'size:44' },
-        { text: '46', callback_data: 'size:46' },
-        { text: '48', callback_data: 'size:48' },
-        { text: '50', callback_data: 'size:50' },
-      ],
+      [{ text: 'XS', callback_data: 'size:XS' }, { text: 'S', callback_data: 'size:S' }, { text: 'M', callback_data: 'size:M' }, { text: 'L', callback_data: 'size:L' }],
+      [{ text: 'XL', callback_data: 'size:XL' }, { text: 'XXL', callback_data: 'size:XXL' }, { text: '3XL', callback_data: 'size:3XL' }],
+      [{ text: '42', callback_data: 'size:42' }, { text: '44', callback_data: 'size:44' }, { text: '46', callback_data: 'size:46' }, { text: '48', callback_data: 'size:48' }],
+      [{ text: '50', callback_data: 'size:50' }, { text: '52', callback_data: 'size:52' }, { text: '54', callback_data: 'size:54' }],
       [{ text: 'пропустить →', callback_data: 'size:skip' }],
     ],
   };

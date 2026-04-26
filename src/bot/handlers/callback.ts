@@ -1,7 +1,7 @@
 import type TelegramBot from 'node-telegram-bot-api';
 import { isAuthorized } from '../../utils/auth';
 import { MESSAGES } from '../messages';
-import { segmentKeyboard, productKeyboard, afterAddKeyboard, capsuleActionsKeyboard } from '../keyboards';
+import { segmentKeyboard, productKeyboard, afterAddKeyboard } from '../keyboards';
 import { searchWildberries } from '../../services/wildberries';
 import { searchLamoda } from '../../services/lamoda';
 import { generateCapsulePDF } from '../../services/pdf';
@@ -247,24 +247,34 @@ async function handleViewCapsule(bot: TelegramBot, chatId: number, telegramId: n
     await bot.sendMessage(chatId, MESSAGES.capsuleEmpty(clientName), { parse_mode: 'Markdown' });
     return;
   }
-  await bot.sendMessage(chatId, MESSAGES.capsuleHeader(clientName, items.length), { parse_mode: 'Markdown' });
-  for (const item of items) {
-    const storeLabel = item.source === 'wildberries' ? 'wildberries' : 'lamoda';
+
+  // Всё в одном сообщении: список + кнопки
+  const lines = items.map((item, i) => {
+    const storeLabel = item.source === 'wildberries' ? 'WB' : 'Lamoda';
     const priceText = item.price > 0 ? ` · ${item.price.toLocaleString('ru-RU')} ₽` : '';
-    await bot.sendMessage(chatId,
-      `*${item.name}*${priceText}\n_${storeLabel}_`,
-      {
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [[
-            { text: '🔗 открыть', url: item.url },
-            { text: '🗑️ удалить', callback_data: `remove_from_capsule:${item.id}` },
-          ]],
-        },
-      }
-    );
-  }
-  await bot.sendMessage(chatId, '⬇️', { reply_markup: capsuleActionsKeyboard() });
+    return `${i + 1}. ${item.name}${priceText} _${storeLabel}_`;
+  });
+
+  const total = items.reduce((s, i) => s + i.price, 0);
+  const totalText = total > 0 ? `\n\n*итого: ${total.toLocaleString('ru-RU')} ₽*` : '';
+
+  const text = `${MESSAGES.capsuleHeader(clientName, items.length)}\n\n${lines.join('\n')}${totalText}`;
+
+  // Кнопки: открыть каждый товар + удалить
+  const itemButtons = items.map(item => ([
+    { text: `🔗 ${item.name.slice(0, 20)}...`, url: item.url },
+    { text: '🗑️', callback_data: `remove_from_capsule:${item.id}` },
+  ]));
+
+  await bot.sendMessage(chatId, text, {
+    parse_mode: 'Markdown',
+    reply_markup: {
+      inline_keyboard: [
+        ...itemButtons,
+        [{ text: '📄 скачать pdf', callback_data: 'download_pdf' }],
+      ],
+    },
+  });
 }
 
 async function handleRemoveFromCapsule(bot: TelegramBot, chatId: number, itemId: string) {

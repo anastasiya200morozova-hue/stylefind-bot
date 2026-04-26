@@ -1,6 +1,5 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
-import { readFileSync } from 'fs';
 import type { CapsuleItem } from '../types';
 import { log } from '../utils/logger';
 
@@ -11,14 +10,25 @@ const MARGIN = 40;
 const PAGE_WIDTH = 595;
 const PAGE_HEIGHT = 842;
 
-let cachedFontBytes: Buffer | null = null;
+let cachedFontBytes: ArrayBuffer | null = null;
 
-function getFontBytes(): Buffer {
-  if (!cachedFontBytes) {
-    const fontPath = require.resolve('@fontsource/roboto/files/roboto-cyrillic-400-normal.woff');
-    cachedFontBytes = readFileSync(fontPath);
+async function getFullFont(): Promise<ArrayBuffer | null> {
+  if (cachedFontBytes) return cachedFontBytes;
+  try {
+    // Google Fonts с IE User-Agent возвращает TTF (один файл: Latin + Cyrillic)
+    const css = await fetch(
+      'https://fonts.googleapis.com/css?family=Roboto:400&subset=cyrillic,latin',
+      { headers: { 'User-Agent': 'Mozilla/4.0 (compatible; MSIE 6.0)' }, signal: AbortSignal.timeout(8000) }
+    ).then(r => r.text());
+    const url = css.match(/url\(([^)]+)\)/)?.[1];
+    if (!url) return null;
+    const font = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!font.ok) return null;
+    cachedFontBytes = await font.arrayBuffer();
+    return cachedFontBytes;
+  } catch {
+    return null;
   }
-  return cachedFontBytes;
 }
 
 async function downloadImage(url: string): Promise<Uint8Array | null> {
@@ -47,8 +57,10 @@ export async function generateCapsulePDF(
     const pdfDoc = await PDFDocument.create();
     pdfDoc.registerFontkit(fontkit);
 
-    const fontBytes = getFontBytes();
-    const font = await pdfDoc.embedFont(fontBytes);
+    const fontBytes = await getFullFont();
+    const font = fontBytes
+      ? await pdfDoc.embedFont(fontBytes)
+      : await pdfDoc.embedFont(StandardFonts.Helvetica);
     const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
     let page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);

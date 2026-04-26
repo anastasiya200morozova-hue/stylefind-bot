@@ -122,14 +122,17 @@ async function handleSegment(
   if (allProducts.length === 0) {
     // Fallback: отправляем ссылки для ручного поиска
     const searchText = buildFallbackSearchText(currentQuery);
-    const wbPriceMap = { mass: '0%3B3000', mid: '3000%3B15000', premium: '15000%3B50000' };
-    const lamodaPriceMap = { mass: '&price_from=0&price_to=3000', mid: '&price_from=3000&price_to=15000', premium: '&price_from=15000&price_to=50000' };
+    // WB priceU = цена в рублях * 100 (копейки)
+    const wbPriceMap = { mass: '0%3B300000', mid: '300000%3B1500000', premium: '1500000%3B5000000' };
+    const segmentLabel = { mass: 'до 3 000 ₽', mid: '3 000–15 000 ₽', premium: 'от 15 000 ₽' };
     const wbUrl = `https://www.wildberries.ru/catalog/0/search.aspx?search=${encodeURIComponent(searchText)}&priceU=${wbPriceMap[segment]}&sort=popular`;
-    const lamodaUrl = `https://www.lamoda.ru/catalogsearch/result/?q=${encodeURIComponent(searchText)}${lamodaPriceMap[segment]}`;
+    // Lamoda не поддерживает фильтр цены в поисковом URL — указываем в тексте
+    const lamodaUrl = `https://www.lamoda.ru/catalogsearch/result/?q=${encodeURIComponent(searchText)}&sort=price_asc`;
 
     await bot.sendMessage(chatId,
-      `😔 Автоматический поиск недоступен сейчас.\n\nОткрой ссылки вручную — нашла что нужно, пришли мне ссылку на товар, я добавлю в капсулу:`,
+      `😔 *автоматический поиск временно недоступен*\n\nоткрой ссылки вручную и найди что нужно\n_бюджет: ${segmentLabel[segment]}_\n\nнашла подходящее — пришли ссылку на товар, добавлю в подборку 👇`,
       {
+        parse_mode: 'Markdown',
         reply_markup: {
           inline_keyboard: [
             [{ text: '🔍 Поиск на Wildberries', url: wbUrl }],

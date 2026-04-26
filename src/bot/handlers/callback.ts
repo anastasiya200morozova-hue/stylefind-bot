@@ -67,7 +67,7 @@ export function registerCallbackHandler(bot: TelegramBot): void {
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err);
       console.error('[callback]', data, error);
-      await bot.sendMessage(chatId, '❌ Что-то пошло не так. Попробуй ещё раз.');
+      await bot.sendMessage(chatId, '❌ что-то пошло не так, попробуй ещё раз');
     }
   });
 }
@@ -269,7 +269,7 @@ async function handleViewCapsule(bot: TelegramBot, chatId: number, telegramId: n
 
 async function handleRemoveFromCapsule(bot: TelegramBot, chatId: number, itemId: string) {
   await removeCapsuleItem(itemId);
-  await bot.sendMessage(chatId, '🗑️ Вещь удалена из капсулы.');
+  await bot.sendMessage(chatId, '🗑️ удалено из подборки');
 }
 
 async function handleDownloadPdf(bot: TelegramBot, chatId: number, telegramId: number) {

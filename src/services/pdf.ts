@@ -1,4 +1,4 @@
-import { PDFDocument, rgb, StandardFonts, type PDFFont } from 'pdf-lib';
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import type { CapsuleItem } from '../types';
 import { log } from '../utils/logger';
 
@@ -9,25 +9,23 @@ const MARGIN = 40;
 const PAGE_WIDTH = 595;  // A4
 const PAGE_HEIGHT = 842; // A4
 
-// Кэш кириллического шрифта
-let cachedFontBytes: ArrayBuffer | null = null;
+// Транслитерация кириллицы — стандартные PDF-шрифты не поддерживают Unicode
+const TRANSLIT: Record<string, string> = {
+  'а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ё':'yo','ж':'zh',
+  'з':'z','и':'i','й':'j','к':'k','л':'l','м':'m','н':'n','о':'o',
+  'п':'p','р':'r','с':'s','т':'t','у':'u','ф':'f','х':'h','ц':'c',
+  'ч':'ch','ш':'sh','щ':'sch','ъ':'','ы':'y','ь':'','э':'e','ю':'yu','я':'ya',
+};
 
-async function getCyrillicFont(pdfDoc: PDFDocument): Promise<PDFFont> {
-  try {
-    if (!cachedFontBytes) {
-      const resp = await fetch(
-        'https://cdn.jsdelivr.net/npm/@fontsource/roboto@5/files/roboto-cyrillic-400-normal.woff2',
-        { signal: AbortSignal.timeout(8000) }
-      );
-      if (resp.ok) cachedFontBytes = await resp.arrayBuffer();
+function toLatn(text: string): string {
+  return text.split('').map(c => {
+    const l = c.toLowerCase();
+    if (TRANSLIT[l] !== undefined) {
+      const t = TRANSLIT[l];
+      return c === l ? t : t ? t[0].toUpperCase() + t.slice(1) : '';
     }
-    if (cachedFontBytes) {
-      return await pdfDoc.embedFont(cachedFontBytes);
-    }
-  } catch {
-    // fallback к стандартному шрифту
-  }
-  return await pdfDoc.embedFont(StandardFonts.Helvetica);
+    return c;
+  }).join('');
 }
 
 async function downloadImage(url: string): Promise<Uint8Array | null> {
@@ -53,14 +51,13 @@ export async function generateCapsulePDF(
 
   try {
     const pdfDoc = await PDFDocument.create();
-    const font = await getCyrillicFont(pdfDoc);
-    const helvetica = font;
-    const helveticaBold = font;
+    const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
     let page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
 
     // ── Заголовок ──
-    page.drawText(`Kapsulya dlya: ${clientName}`, {
+    page.drawText(`Kapsulya dlya: ${toLatn(clientName)}`, {
       x: MARGIN,
       y: PAGE_HEIGHT - 50,
       size: 20,
@@ -132,7 +129,7 @@ export async function generateCapsulePDF(
       }
 
       // Название (ASCII/латиница — кириллица требует отдельного шрифта)
-      page.drawText(truncate(item.name, 36), {
+      page.drawText(truncate(toLatn(item.name), 36), {
         x,
         y: rowY - 170,
         size: 9,
@@ -168,7 +165,7 @@ export async function generateCapsulePDF(
 
     // ── Итого ──
     const total = items.reduce((sum, i) => sum + i.price, 0);
-    page.drawText(`Itogo: ${total.toLocaleString('ru-RU')} rub. (${items.length} vesci)`, {
+    page.drawText(`Total: ${total.toLocaleString('ru-RU')} rub. (${items.length} items)`, {
       x: MARGIN,
       y: MARGIN + 20,
       size: 12,

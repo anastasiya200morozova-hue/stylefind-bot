@@ -43,6 +43,35 @@ function detectLink(text: string): LinkInfo | null {
   return { type: 'unknown', url };
 }
 
+async function fetchLamodaProduct(url: string): Promise<{
+  name: string; price: number; image_url: string;
+} | null> {
+  try {
+    const { execFile } = await import('child_process');
+    const { promisify } = await import('util');
+    const exec = promisify(execFile);
+    const { stdout } = await exec('curl', [
+      '-s', '--max-time', '10',
+      '-L',
+      '-H', 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+      '-H', 'Accept-Language: ru-RU,ru;q=0.9',
+      url,
+    ]);
+    const ogTitle = stdout.match(/<meta[^>]+property="og:title"[^>]+content="([^"]+)"/)?.[1]
+      ?? stdout.match(/<meta[^>]+content="([^"]+)"[^>]+property="og:title"/)?.[1];
+    const ogPrice = stdout.match(/<meta[^>]+property="product:price:amount"[^>]+content="([^"]+)"/)?.[1]
+      ?? stdout.match(/<meta[^>]+content="([^"]+)"[^>]+property="product:price:amount"/)?.[1];
+    const ogImage = stdout.match(/<meta[^>]+property="og:image"[^>]+content="([^"]+)"/)?.[1]
+      ?? stdout.match(/<meta[^>]+content="([^"]+)"[^>]+property="og:image"/)?.[1];
+
+    const name = ogTitle?.replace(' — купить в интернет-магазине Lamoda', '').trim() ?? 'Товар с Lamoda';
+    const price = ogPrice ? Math.round(parseFloat(ogPrice)) : 0;
+    return { name, price, image_url: ogImage ?? '' };
+  } catch {
+    return null;
+  }
+}
+
 async function fetchWbProduct(productId: string): Promise<{
   name: string; price: number; image_url: string;
 } | null> {
@@ -135,15 +164,24 @@ export function registerTextHandler(bot: TelegramBot): void {
         }
 
         if (link.type === 'lamoda' && link.productId) {
+          const statusMsg = await bot.sendMessage(chatId, '🔍 смотрю что это за вещь...');
+          const info = await fetchLamodaProduct(link.url);
+          await bot.deleteMessage(chatId, statusMsg.message_id);
+
+          const name = info?.name ?? 'Товар с Lamoda';
+          const price = info?.price ?? 0;
+          const imageUrl = info?.image_url ?? '';
+          const priceText = price > 0 ? ` · ${price.toLocaleString('ru-RU')} ₽` : '';
+
           const productId = `la_url_${link.productId}`;
           await clearSearchResults(telegramId);
           await saveSearchResults(telegramId, session.id, [{
             product_id: productId, source: 'lamoda',
-            name: 'Товар с Lamoda', price: 0, url: link.url, image_url: '',
+            name, price, url: link.url, image_url: imageUrl,
           }]);
 
           await bot.sendMessage(chatId,
-            `🔥 *товар с lamoda*\nдобавить в подборку?`,
+            `🔥 *${name}*${priceText}\n_lamoda_\n\nдобавить в подборку?`,
             {
               parse_mode: 'Markdown',
               reply_markup: {

@@ -1,7 +1,7 @@
 import type TelegramBot from 'node-telegram-bot-api';
 import { isAuthorized } from '../../utils/auth';
 import { MESSAGES } from '../messages';
-import { segmentKeyboard, productKeyboard, afterAddKeyboard } from '../keyboards';
+import { segmentKeyboard, productKeyboard, afterAddKeyboard, sizeKeyboard } from '../keyboards';
 import { searchWildberries } from '../../services/wildberries';
 import { searchLamoda } from '../../services/lamoda';
 import { generateCapsulePDF } from '../../services/pdf';
@@ -47,7 +47,13 @@ export function registerCallbackHandler(bot: TelegramBot): void {
         await handleEditQuery(bot, chatId, telegramId);
       } else if (data.startsWith('segment_')) {
         const segment = data.replace('segment_', '') as Segment;
-        await handleSegment(bot, chatId, telegramId, segment);
+        await updateSession(telegramId, { state: 'choosing_size', current_segment: segment });
+        await bot.sendMessage(chatId, 'выбери размер или пропусти 👇', {
+          reply_markup: sizeKeyboard(),
+        });
+      } else if (data.startsWith('size:')) {
+        const size = data.split(':')[1];
+        await handleSizeAndSearch(bot, chatId, telegramId, size);
       } else if (data.startsWith('add_to_capsule:')) {
         const parts = data.split(':');
         if (parts.length !== 3) return;
@@ -70,6 +76,28 @@ export function registerCallbackHandler(bot: TelegramBot): void {
       await bot.sendMessage(chatId, '❌ что-то пошло не так, попробуй ещё раз');
     }
   });
+}
+
+async function handleSizeAndSearch(bot: TelegramBot, chatId: number, telegramId: number, size: string) {
+  const session = await getOrCreateSession(telegramId);
+  if (!session.current_query) {
+    await bot.sendMessage(chatId, '⚠️ сначала отправь фото или описание вещи');
+    return;
+  }
+
+  // Добавляем размер к запросу если выбран
+  let query = session.current_query as unknown as SearchQuery;
+  if (size !== 'skip') {
+    query = {
+      ...query,
+      additional_details: query.additional_details
+        ? `${query.additional_details} размер ${size}`
+        : `размер ${size}`,
+    };
+    await updateSession(telegramId, { current_query: query });
+  }
+
+  await handleSegment(bot, chatId, telegramId, session.current_segment as Segment ?? 'mid');
 }
 
 async function handleConfirmQuery(bot: TelegramBot, chatId: number) {

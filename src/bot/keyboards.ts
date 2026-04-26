@@ -48,6 +48,38 @@ export function capsuleActionsKeyboard(): TelegramBot.InlineKeyboardMarkup {
   };
 }
 
+export function sizeKeyboard(): TelegramBot.InlineKeyboardMarkup {
+  return {
+    inline_keyboard: [
+      [
+        { text: 'XS', callback_data: 'size:XS' },
+        { text: 'S', callback_data: 'size:S' },
+        { text: 'M', callback_data: 'size:M' },
+        { text: 'L', callback_data: 'size:L' },
+        { text: 'XL', callback_data: 'size:XL' },
+        { text: 'XXL', callback_data: 'size:XXL' },
+      ],
+      [
+        { text: '36', callback_data: 'size:36' },
+        { text: '37', callback_data: 'size:37' },
+        { text: '38', callback_data: 'size:38' },
+        { text: '39', callback_data: 'size:39' },
+        { text: '40', callback_data: 'size:40' },
+        { text: '41', callback_data: 'size:41' },
+      ],
+      [
+        { text: '42', callback_data: 'size:42' },
+        { text: '43', callback_data: 'size:43' },
+        { text: '44', callback_data: 'size:44' },
+        { text: '46', callback_data: 'size:46' },
+        { text: '48', callback_data: 'size:48' },
+        { text: '50', callback_data: 'size:50' },
+      ],
+      [{ text: 'пропустить →', callback_data: 'size:skip' }],
+    ],
+  };
+}
+
 export function afterAddKeyboard(): TelegramBot.InlineKeyboardMarkup {
   return {
     inline_keyboard: [

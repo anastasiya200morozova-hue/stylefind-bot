@@ -11,11 +11,11 @@ export function confirmKeyboard(): TelegramBot.InlineKeyboardMarkup {
 
 export function segmentKeyboard(): TelegramBot.InlineKeyboardMarkup {
   return {
-    inline_keyboard: [[
-      { text: '💰 Масс-маркет', callback_data: 'segment_mass' },
-      { text: '💳 Средний', callback_data: 'segment_mid' },
-      { text: '💎 Премиум', callback_data: 'segment_premium' },
-    ]],
+    inline_keyboard: [
+      [{ text: 'до 3 000 ₽', callback_data: 'segment_mass' }],
+      [{ text: '3 000 — 15 000 ₽', callback_data: 'segment_mid' }],
+      [{ text: 'от 15 000 ₽', callback_data: 'segment_premium' }],
+    ],
   };
 }
 

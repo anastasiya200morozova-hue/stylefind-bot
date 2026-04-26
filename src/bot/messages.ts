@@ -1,57 +1,57 @@
 import type { SearchQuery } from '../types';
 
 export const MESSAGES = {
-  start: `👋 Привет! Я StyleFind — твой помощник по поиску вещей.
+  start: `привет! 👋 я помогу найти вещи которые ты ищешь
 
-Отправь мне:
-📸 Фото или скрин референса
-✍️ Текстовое описание вещи
+отправь мне:
+📸 фото или скрин референса
+✍️ или просто опиши что хочешь
 
-И я найду похожее на Wildberries и Lamoda!`,
+найду похожее на wildberries, lamoda и не только 🔍`,
 
-  help: `📋 Команды:
-/start — приветствие
-/capsule — показать текущую капсулу
-/newclient — начать капсулу для нового клиента
-/help — эта справка
+  help: `вот что я умею 🤌
 
-Просто отправь фото или текст — и я начну поиск.`,
+📸 анализирую фото — скинь референс
+✍️ ищу по описанию — напиши что нужно
+💾 /capsule — посмотреть сохранённое
+🔄 /newclient — начать новую подборку
+❓ /help — это сообщение`,
 
-  analyzingPhoto: '🔍 Анализирую фото...',
-  analyzingText: '🔍 Обрабатываю описание...',
-  searching: '🔍 Ищу похожие вещи на Wildberries и Lamoda...',
-  generatingPdf: '📄 Генерирую PDF... подождите 10–15 секунд',
+  analyzingPhoto: 'смотрю что тут... 👀',
+  analyzingText: 'понимаю что ищем... 🧠',
+  searching: 'ищу варианты, подожди секунду 🔍✨',
+  generatingPdf: 'собираю pdf... займёт секунд 10 🗂️',
 
-  geminiError: '⚠️ Не смог проанализировать фото. Напиши текстом что ищешь.',
-  geminiLimitReached: '⚠️ Дневной лимит AI исчерпан. Описывай вещи текстом — поиск работает.',
+  geminiError: 'не смогла разобрать фото 😔 попробуй написать текстом что ищешь',
+  geminiLimitReached: 'ai временно на паузе, но поиск по тексту работает ✌️',
 
-  noResults: '😔 Ничего не нашёл. Попробуй уточнить описание.',
-  wbUnavailable: '⚠️ Wildberries временно недоступен — ищу только на Lamoda.',
-  lamodaUnavailable: '⚠️ Lamoda временно недоступна — ищу только на Wildberries.',
-  bothUnavailable: '❌ Магазины временно недоступны. Попробуй через 5 минут.',
+  noResults: 'упс, ничего не нашлось 😭 попробуй переформулировать',
+  wbUnavailable: 'wildberries сейчас недоступен, ищу на lamoda 🤷',
+  lamodaUnavailable: 'lamoda сейчас недоступна, ищу на wildberries 🤷',
+  bothUnavailable: 'магазины временно лежат 😴 попробуй через пару минут',
 
-  emptyCapsule: '📦 Капсула пуста. Добавь вещи перед скачиванием.',
-  askClientName: '👤 Для какого клиента эта капсула? Напиши имя:',
-  photoTooLarge: '⚠️ Фото слишком большое. Отправь файл меньше 20 МБ.',
-  unsupportedType: '⚠️ Отправь фото или текстовое описание вещи.',
-  newClientStarted: '✅ Клиент сброшен. Отправь фото или описание для новой капсулы.',
+  emptyCapsule: 'подборка пустая — сначала добавь что-нибудь 🛍️',
+  askClientName: 'для кого сохраняем? напиши имя 👤',
+  photoTooLarge: 'фото слишком тяжёлое 😬 отправь файл до 20 мб',
+  unsupportedType: 'скинь фото или напиши текстом что ищешь ✌️',
+  newClientStarted: 'готово! начинаем новую подборку 🆕 отправь фото или опиши вещь',
 
   confirmQuery: (q: SearchQuery) =>
-    `✅ Вижу: *${q.item_type}*${q.color ? `, ${q.color}` : ''}${q.style ? `, ${q.style}` : ''}${q.additional_details ? `\n_${q.additional_details}_` : ''}\n\nВерно?`,
+    `окей, вижу: *${q.item_type}*${q.color ? `, ${q.color}` : ''}${q.style ? `, ${q.style}` : ''}${q.additional_details ? `\n_${q.additional_details}_` : ''}\n\nэто то что нужно? 🤌`,
 
-  chooseSegment: '💰 Выбери ценовой сегмент:',
+  chooseSegment: 'какой бюджет? 💸',
 
   addedToCapsule: (clientName: string, count: number) =>
-    `✅ Добавлено в капсулу *${clientName}* (${count} ${pluralItems(count)})`,
+    `✅ добавила в подборку *${clientName}* (${count} ${pluralItems(count)})`,
 
   capsuleWarning: (count: number) =>
-    `⚠️ В капсуле уже ${count} вещей — рекомендую скачать PDF и начать новую.`,
+    `уже ${count} вещей — может скачаем pdf и начнём новую? 😅`,
 
   capsuleHeader: (clientName: string, count: number) =>
-    `📦 Капсула *${clientName}* — ${count} ${pluralItems(count)}:`,
+    `подборка *${clientName}* — ${count} ${pluralItems(count)} 🗂️`,
 
   capsuleEmpty: (clientName: string) =>
-    `📦 Капсула *${clientName}* пуста.`,
+    `подборка *${clientName}* пока пустая 🫙`,
 };
 
 function pluralItems(n: number): string {

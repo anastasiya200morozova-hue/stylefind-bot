@@ -122,9 +122,10 @@ async function handleSegment(
   if (allProducts.length === 0) {
     // Fallback: отправляем ссылки для ручного поиска
     const searchText = buildFallbackSearchText(currentQuery);
-    const priceParam = segment === 'mass' ? '&priceU=0-300000' : segment === 'mid' ? '&priceU=300000-1500000' : '&priceU=1500000-5000000';
-    const wbUrl = `https://www.wildberries.ru/catalog/0/search.aspx?search=${encodeURIComponent(searchText)}${priceParam}`;
-    const lamodaUrl = `https://www.lamoda.ru/catalogsearch/result/?q=${encodeURIComponent(searchText)}`;
+    const priceMap = { mass: '0-3000', mid: '3000-15000', premium: '15000-50000' };
+    const lamodaPriceMap = { mass: '&qs_price_from=0&qs_price_to=3000', mid: '&qs_price_from=3000&qs_price_to=15000', premium: '&qs_price_from=15000&qs_price_to=50000' };
+    const wbUrl = `https://www.wildberries.ru/catalog/0/search.aspx?search=${encodeURIComponent(searchText)}&priceU=${priceMap[segment]}`;
+    const lamodaUrl = `https://www.lamoda.ru/catalogsearch/result/?q=${encodeURIComponent(searchText)}${lamodaPriceMap[segment]}`;
 
     await bot.sendMessage(chatId,
       `😔 Автоматический поиск недоступен сейчас.\n\nОткрой ссылки вручную — нашла что нужно, пришли мне ссылку на товар, я добавлю в капсулу:`,

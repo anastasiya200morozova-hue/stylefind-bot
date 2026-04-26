@@ -11,6 +11,8 @@ import {
   getOrCreateCapsule,
   addCapsuleItem,
   countCapsuleItems,
+  clearSearchResults,
+  saveSearchResults,
 } from '../../services/supabase';
 
 // Определяем тип ссылки
@@ -107,7 +109,16 @@ export function registerTextHandler(bot: TelegramBot): void {
 
           const name = info?.name ?? 'Товар с Wildberries';
           const price = info?.price ?? 0;
+          const imageUrl = info?.image_url ?? '';
           const priceText = price > 0 ? ` · ${price.toLocaleString('ru-RU')} ₽` : '';
+
+          // Сохраняем в search_results чтобы потом добавить в капсулу
+          const productId = `wb_url_${link.productId}`;
+          await clearSearchResults(telegramId);
+          await saveSearchResults(telegramId, session.id, [{
+            product_id: productId, source: 'wildberries',
+            name, price, url: link.url, image_url: imageUrl,
+          }]);
 
           await bot.sendMessage(chatId,
             `🔥 *${name}*${priceText}\n_wildberries_\n\nдобавить в подборку?`,
@@ -115,7 +126,7 @@ export function registerTextHandler(bot: TelegramBot): void {
               parse_mode: 'Markdown',
               reply_markup: {
                 inline_keyboard: [[
-                  { text: '✅ добавить', callback_data: `add_url:${link.url}:${link.productId}:wildberries:${encodeURIComponent(name)}:${price}:${encodeURIComponent(info?.image_url ?? '')}` },
+                  { text: '✅ добавить', callback_data: `add_to_capsule:${productId}:wildberries` },
                   { text: '❌ не надо', callback_data: 'cancel_url' },
                 ]],
               },
@@ -124,13 +135,20 @@ export function registerTextHandler(bot: TelegramBot): void {
         }
 
         if (link.type === 'lamoda' && link.productId) {
+          const productId = `la_url_${link.productId}`;
+          await clearSearchResults(telegramId);
+          await saveSearchResults(telegramId, session.id, [{
+            product_id: productId, source: 'lamoda',
+            name: 'Товар с Lamoda', price: 0, url: link.url, image_url: '',
+          }]);
+
           await bot.sendMessage(chatId,
             `🔥 *товар с lamoda*\nдобавить в подборку?`,
             {
               parse_mode: 'Markdown',
               reply_markup: {
                 inline_keyboard: [[
-                  { text: '✅ добавить', callback_data: `add_url:${link.url}:${link.productId}:lamoda:${encodeURIComponent('Товар с Lamoda')}:0:` },
+                  { text: '✅ добавить', callback_data: `add_to_capsule:${productId}:lamoda` },
                   { text: '❌ не надо', callback_data: 'cancel_url' },
                 ]],
               },

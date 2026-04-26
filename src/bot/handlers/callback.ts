@@ -6,6 +6,13 @@ import { searchWildberries } from '../../services/wildberries';
 import { searchLamoda } from '../../services/lamoda';
 import { generateCapsulePDF } from '../../services/pdf';
 import type { Segment, Product, SearchQuery } from '../../types';
+
+function buildFallbackSearchText(query: SearchQuery): string {
+  const parts = [query.item_type];
+  if (query.color) parts.push(query.color);
+  if (query.additional_details) parts.push(query.additional_details);
+  return parts.join(' ');
+}
 import {
   getOrCreateSession,
   updateSession,
@@ -113,7 +120,23 @@ async function handleSegment(
   await bot.deleteMessage(chatId, statusMsg.message_id);
 
   if (allProducts.length === 0) {
-    await bot.sendMessage(chatId, MESSAGES.noResults);
+    // Fallback: отправляем ссылки для ручного поиска
+    const searchText = buildFallbackSearchText(currentQuery);
+    const priceParam = segment === 'mass' ? '&priceU=0-300000' : segment === 'mid' ? '&priceU=300000-1500000' : '&priceU=1500000-5000000';
+    const wbUrl = `https://www.wildberries.ru/catalog/0/search.aspx?search=${encodeURIComponent(searchText)}${priceParam}`;
+    const lamodaUrl = `https://www.lamoda.ru/catalogsearch/result/?q=${encodeURIComponent(searchText)}`;
+
+    await bot.sendMessage(chatId,
+      `😔 Автоматический поиск недоступен сейчас.\n\nОткрой ссылки вручную — нашла что нужно, пришли мне ссылку на товар, я добавлю в капсулу:`,
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔍 Поиск на Wildberries', url: wbUrl }],
+            [{ text: '🔍 Поиск на Lamoda', url: lamodaUrl }],
+          ],
+        },
+      }
+    );
     await updateSession(telegramId, { state: 'idle' });
     return;
   }

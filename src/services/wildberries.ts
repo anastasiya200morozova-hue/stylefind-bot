@@ -59,23 +59,30 @@ async function fetchWbViaCurl(queryStr: string, segment: Segment): Promise<Produ
     url,
   ]);
 
-  const json = JSON.parse(stdout) as {
-    data?: { products?: Array<{
-      id: number;
-      name: string;
-      priceU?: number;
-      salePriceU?: number;
-    }> };
-  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const json = JSON.parse(stdout) as any;
+  const products: any[] = json.data?.products ?? json.products ?? [];
 
-  return (json.data?.products ?? []).slice(0, 10).map((p) => ({
-    product_id: String(p.id),
-    source: 'wildberries' as const,
-    name: p.name,
-    price: Math.round((p.salePriceU ?? p.priceU ?? 0) / 100),
-    url: `https://www.wildberries.ru/catalog/${p.id}/detail.aspx`,
-    image_url: getWbImageUrl(p.id),
-  }));
+  return products.slice(0, 10).map((p: any) => {
+    // WB меняет расположение цены — проверяем несколько мест
+    const rawPrice =
+      p.salePriceU ??
+      p.priceU ??
+      p.sizes?.[0]?.price?.total ??
+      p.sizes?.[0]?.price?.product ??
+      p.extended?.basicSale?.total ??
+      0;
+    const price = Math.round(rawPrice / 100);
+
+    return {
+      product_id: String(p.id),
+      source: 'wildberries' as const,
+      name: p.name,
+      price,
+      url: `https://www.wildberries.ru/catalog/${p.id}/detail.aspx`,
+      image_url: getWbImageUrl(p.id),
+    };
+  });
 }
 
 export async function searchWildberries(

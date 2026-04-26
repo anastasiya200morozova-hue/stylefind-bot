@@ -5,10 +5,15 @@ import { log } from '../utils/logger';
 // ─── Fallback: парсим текст без Gemini ───────────────────────────────────────
 const COLORS = ['белый', 'чёрный', 'черный', 'серый', 'бежевый', 'коричневый', 'синий', 'голубой',
   'красный', 'розовый', 'зелёный', 'зеленый', 'жёлтый', 'желтый', 'оранжевый', 'фиолетовый',
-  'бордовый', 'хаки', 'молочный', 'кремовый', 'темный', 'тёмный', 'светлый', 'яркий'];
-const ITEM_TYPES = ['джинсы', 'брюки', 'штаны', 'платье', 'юбка', 'блуза', 'блузка', 'рубашка',
-  'свитер', 'худи', 'толстовка', 'куртка', 'пальто', 'тренч', 'пуховик', 'жакет', 'пиджак',
-  'футболка', 'топ', 'шорты', 'кардиган', 'жилет', 'комбинезон', 'костюм', 'сарафан', 'лонгслив'];
+  'бордовый', 'хаки', 'молочный', 'кремовый', 'темный', 'тёмный', 'светлый', 'яркий', 'белые',
+  'чёрные', 'серые', 'синие', 'голубые', 'красные', 'зелёные', 'коричневые', 'бежевые'];
+const ITEM_TYPES = ['джинсы', 'брюки', 'штаны', 'платье', 'платья', 'юбка', 'юбки', 'блуза', 'блузка',
+  'рубашка', 'рубашки', 'свитер', 'худи', 'толстовка', 'куртка', 'куртки', 'пальто', 'тренч',
+  'пуховик', 'жакет', 'пиджак', 'футболка', 'футболки', 'топ', 'шорты', 'кардиган', 'жилет',
+  'комбинезон', 'костюм', 'сарафан', 'лонгслив', 'лосины', 'легинсы', 'леггинсы', 'лосины',
+  'свитшот', 'водолазка', 'боди', 'туника', 'платье-рубашка', 'ветровка', 'бомбер', 'парка',
+  'плащ', 'жилетка', 'блейзер', 'кепка', 'шапка', 'шарф', 'перчатки', 'носки', 'колготки',
+  'купальник', 'бикини', 'купальник', 'пижама', 'халат'];
 const STYLES: Record<string, ItemStyle> = {
   'спорт': 'sport', 'спортивный': 'sport', 'спортивная': 'sport',
   'деловой': 'business', 'деловая': 'business', 'офис': 'business', 'офисный': 'business',
@@ -17,14 +22,16 @@ const STYLES: Record<string, ItemStyle> = {
   'повседневный': 'casual', 'повседневная': 'casual', 'casual': 'casual',
 };
 
-function parseFallback(text: string): SearchQuery | null {
+function parseFallback(text: string): SearchQuery {
   const lower = text.toLowerCase();
   const words = lower.split(/\s+/);
-  const item_type = ITEM_TYPES.find(t => lower.includes(t)) ?? null;
-  if (!item_type) return null;
+  // Если тип не найден — используем первое существительное (первое слово)
+  const item_type = ITEM_TYPES.find(t => lower.includes(t)) ?? words[0];
   const color = COLORS.find(c => lower.includes(c)) ?? null;
   const style = Object.entries(STYLES).find(([k]) => lower.includes(k))?.[1] ?? null;
-  const details = words.filter(w => w.length > 4 && !ITEM_TYPES.includes(w) && !COLORS.includes(w)).slice(0, 3).join(', ') || null;
+  const details = words
+    .filter(w => w.length > 3 && w !== item_type && !COLORS.includes(w))
+    .slice(0, 3).join(' ') || null;
   return { type: 'text', item_type, color, style, additional_details: details };
 }
 
@@ -139,12 +146,12 @@ export async function parseTextQuery(
     }
 
     if (query) query.type = 'text';
+    const result = query ?? parseFallback(text);
     await log('gemini_analysis', { type: 'text', text }, { success: !!query }, Date.now() - start, undefined, telegramId);
-    return query;
+    return result;
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);
     await log('gemini_analysis', { type: 'text', fallback: true }, {}, Date.now() - start, error, telegramId);
-    // Fallback: парсим без Gemini
     return parseFallback(text);
   }
 }

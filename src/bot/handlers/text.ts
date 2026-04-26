@@ -82,37 +82,47 @@ async function fetchLamodaProduct(url: string): Promise<{
   }
 }
 
+function wbImageUrl(id: number): string {
+  const vol = Math.floor(id / 100000);
+  const part = Math.floor(id / 1000);
+  let b = 1;
+  if (vol <= 143) b = 1; else if (vol <= 287) b = 2;
+  else if (vol <= 431) b = 3; else if (vol <= 719) b = 4;
+  else if (vol <= 1007) b = 5; else if (vol <= 1061) b = 6;
+  else if (vol <= 1115) b = 7; else if (vol <= 1169) b = 8;
+  else if (vol <= 1313) b = 9; else if (vol <= 1601) b = 10;
+  else if (vol <= 1919) b = 12; else b = 13;
+  return `https://basket-${String(b).padStart(2, '0')}.wbbasket.ru/vol${vol}/part${part}/${id}/images/big/1.jpg`;
+}
+
 async function fetchWbProduct(productId: string): Promise<{
   name: string; price: number; image_url: string;
-} | null> {
+}> {
+  const numId = parseInt(productId, 10);
+  // Картинку вычисляем всегда — не зависит от API
+  const image_url = isNaN(numId) ? '' : wbImageUrl(numId);
+  const fallback = { name: 'Товар с Wildberries', price: 0, image_url };
+
   try {
     const { execFile } = await import('child_process');
     const { promisify } = await import('util');
     const exec = promisify(execFile);
-    const apiUrl = `https://card.wb.ru/cards/v2/detail?appType=1&curr=rub&dest=-1257786&spp=30&nm=${productId}`;
-    const { stdout } = await exec('curl', ['-s', '--max-time', '10',
-      '-H', 'User-Agent: WBAndroid/3.0.3800', apiUrl]);
+    const apiUrl = `https://card.wb.ru/cards/detail?appType=1&curr=rub&dest=-1257786&spp=30&nm=${productId}`;
+    const { stdout } = await exec('curl', ['-s', '--max-time', '8',
+      '-H', 'User-Agent: WBAndroid/3.0.3800',
+      '-H', 'Accept: application/json', apiUrl]);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const json = JSON.parse(stdout) as any;
     const p = json?.data?.products?.[0];
-    if (!p) return null;
-    const vol = Math.floor(p.id / 100000);
-    const part = Math.floor(p.id / 1000);
-    let basket = 1;
-    if (vol <= 143) basket = 1; else if (vol <= 287) basket = 2;
-    else if (vol <= 431) basket = 3; else if (vol <= 719) basket = 4;
-    else if (vol <= 1007) basket = 5; else if (vol <= 1061) basket = 6;
-    else if (vol <= 1115) basket = 7; else if (vol <= 1169) basket = 8;
-    else if (vol <= 1313) basket = 9; else if (vol <= 1601) basket = 10;
-    else if (vol <= 1919) basket = 12; else basket = 13;
-    const b = String(basket).padStart(2, '0');
+    if (!p) return fallback;
     return {
       name: p.name ?? 'Товар с Wildberries',
-      price: Math.round((p.salePriceU ?? p.priceU ?? p.sizes?.[0]?.price?.total ?? 0) / 100),
-      image_url: `https://basket-${b}.wbbasket.ru/vol${vol}/part${part}/${p.id}/images/big/1.jpg`,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      price: Math.round((p.salePriceU ?? p.priceU ?? (p.sizes as any)?.[0]?.price?.total ?? 0) / 100),
+      image_url,
     };
   } catch {
-    return null;
+    return fallback;
   }
 }
 

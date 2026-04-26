@@ -1,4 +1,4 @@
-import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { PDFDocument, rgb, StandardFonts, type PDFFont } from 'pdf-lib';
 import type { CapsuleItem } from '../types';
 import { log } from '../utils/logger';
 
@@ -8,6 +8,27 @@ const ITEM_HEIGHT = 200;
 const MARGIN = 40;
 const PAGE_WIDTH = 595;  // A4
 const PAGE_HEIGHT = 842; // A4
+
+// Кэш кириллического шрифта
+let cachedFontBytes: ArrayBuffer | null = null;
+
+async function getCyrillicFont(pdfDoc: PDFDocument): Promise<PDFFont> {
+  try {
+    if (!cachedFontBytes) {
+      const resp = await fetch(
+        'https://cdn.jsdelivr.net/npm/@fontsource/roboto@5/files/roboto-cyrillic-400-normal.woff2',
+        { signal: AbortSignal.timeout(8000) }
+      );
+      if (resp.ok) cachedFontBytes = await resp.arrayBuffer();
+    }
+    if (cachedFontBytes) {
+      return await pdfDoc.embedFont(cachedFontBytes);
+    }
+  } catch {
+    // fallback к стандартному шрифту
+  }
+  return await pdfDoc.embedFont(StandardFonts.Helvetica);
+}
 
 async function downloadImage(url: string): Promise<Uint8Array | null> {
   try {
@@ -32,8 +53,9 @@ export async function generateCapsulePDF(
 
   try {
     const pdfDoc = await PDFDocument.create();
-    const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
-    const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    const font = await getCyrillicFont(pdfDoc);
+    const helvetica = font;
+    const helveticaBold = font;
 
     let page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
 

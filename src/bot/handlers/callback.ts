@@ -1,7 +1,7 @@
 import type TelegramBot from 'node-telegram-bot-api';
 import { isAuthorized } from '../../utils/auth';
 import { MESSAGES } from '../messages';
-import { segmentKeyboard, productKeyboard, afterAddKeyboard } from '../keyboards';
+import { segmentKeyboard, productKeyboard, afterAddKeyboard, capsuleActionsKeyboard } from '../keyboards';
 import { searchWildberries } from '../../services/wildberries';
 import { searchLamoda } from '../../services/lamoda';
 import { generateCapsulePDF } from '../../services/pdf';
@@ -61,6 +61,8 @@ export function registerCallbackHandler(bot: TelegramBot): void {
         await bot.sendMessage(chatId, 'окей, не добавляем 👌');
       } else if (data === 'search_more') {
         await bot.sendMessage(chatId, '🔍 окей! напиши что ищем или скинь фото');
+      } else if (data === 'view_capsule') {
+        await handleViewCapsule(bot, chatId, telegramId);
       }
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err);
@@ -226,6 +228,43 @@ async function handleAddToCapsule(
   if (count >= 20) {
     await bot.sendMessage(chatId, MESSAGES.capsuleWarning(count), { parse_mode: 'Markdown' });
   }
+}
+
+async function handleViewCapsule(bot: TelegramBot, chatId: number, telegramId: number) {
+  const session = await getOrCreateSession(telegramId);
+  const clientName = session.current_client_name;
+  if (!clientName) {
+    await bot.sendMessage(chatId, '📁 нет активной подборки — сначала добавь вещи');
+    return;
+  }
+  const capsule = await getActiveCapsule(telegramId, clientName);
+  if (!capsule) {
+    await bot.sendMessage(chatId, MESSAGES.capsuleEmpty(clientName), { parse_mode: 'Markdown' });
+    return;
+  }
+  const items = await getCapsuleItems(capsule.id);
+  if (items.length === 0) {
+    await bot.sendMessage(chatId, MESSAGES.capsuleEmpty(clientName), { parse_mode: 'Markdown' });
+    return;
+  }
+  await bot.sendMessage(chatId, MESSAGES.capsuleHeader(clientName, items.length), { parse_mode: 'Markdown' });
+  for (const item of items) {
+    const storeLabel = item.source === 'wildberries' ? 'wildberries' : 'lamoda';
+    const priceText = item.price > 0 ? ` · ${item.price.toLocaleString('ru-RU')} ₽` : '';
+    await bot.sendMessage(chatId,
+      `*${item.name}*${priceText}\n_${storeLabel}_`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [[
+            { text: '🔗 открыть', url: item.url },
+            { text: '🗑️ удалить', callback_data: `remove_from_capsule:${item.id}` },
+          ]],
+        },
+      }
+    );
+  }
+  await bot.sendMessage(chatId, '⬇️', { reply_markup: capsuleActionsKeyboard() });
 }
 
 async function handleRemoveFromCapsule(bot: TelegramBot, chatId: number, itemId: string) {

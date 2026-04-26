@@ -57,14 +57,24 @@ async function fetchLamodaProduct(url: string): Promise<{
       '-H', 'Accept-Language: ru-RU,ru;q=0.9',
       url,
     ]);
-    const ogTitle = stdout.match(/<meta[^>]+property="og:title"[^>]+content="([^"]+)"/)?.[1]
-      ?? stdout.match(/<meta[^>]+content="([^"]+)"[^>]+property="og:title"/)?.[1];
-    const ogPrice = stdout.match(/<meta[^>]+property="product:price:amount"[^>]+content="([^"]+)"/)?.[1]
-      ?? stdout.match(/<meta[^>]+content="([^"]+)"[^>]+property="product:price:amount"/)?.[1];
-    const ogImage = stdout.match(/<meta[^>]+property="og:image"[^>]+content="([^"]+)"/)?.[1]
-      ?? stdout.match(/<meta[^>]+content="([^"]+)"[^>]+property="og:image"/)?.[1];
+    const ogTitle = stdout.match(/property="og:title"\s+content="([^"]+)"/)?.[1]
+      ?? stdout.match(/content="([^"]+)"\s+property="og:title"/)?.[1]
+      ?? stdout.match(/<title>([^<]+)<\/title>/)?.[1];
 
-    const name = ogTitle?.replace(' — купить в интернет-магазине Lamoda', '').trim() ?? 'Товар с Lamoda';
+    // Цена: пробуем разные источники
+    const ogPrice = stdout.match(/product:price:amount[^>]+content="([^"]+)"/)?.[1]
+      ?? stdout.match(/content="([^"]+)"[^>]+product:price:amount/)?.[1]
+      ?? stdout.match(/"price"\s*:\s*"?(\d+(?:\.\d+)?)"?/)?.[1]
+      ?? stdout.match(/"currentPrice"\s*:\s*(\d+)/)?.[1]
+      ?? stdout.match(/data-price="(\d+)"/)?.[1];
+
+    const ogImage = stdout.match(/property="og:image"\s+content="([^"]+)"/)?.[1]
+      ?? stdout.match(/content="([^"]+)"\s+property="og:image"/)?.[1];
+
+    const name = (ogTitle ?? 'Товар с Lamoda')
+      .replace(' — купить в интернет-магазине Lamoda', '')
+      .replace(' | Lamoda', '')
+      .trim();
     const price = ogPrice ? Math.round(parseFloat(ogPrice)) : 0;
     return { name, price, image_url: ogImage ?? '' };
   } catch {

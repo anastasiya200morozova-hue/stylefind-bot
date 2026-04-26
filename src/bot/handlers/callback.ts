@@ -279,7 +279,15 @@ async function handleViewCapsule(bot: TelegramBot, chatId: number, telegramId: n
 
 async function handleRemoveFromCapsule(bot: TelegramBot, chatId: number, itemId: string) {
   await removeCapsuleItem(itemId);
-  await bot.sendMessage(chatId, '🗑️ удалено из подборки');
+  await bot.sendMessage(chatId, '🗑️ удалено из подборки', {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '📋 посмотреть подборку', callback_data: 'view_capsule' }],
+        [{ text: '🔍 искать ещё', callback_data: 'search_more' }],
+        [{ text: '📄 скачать pdf', callback_data: 'download_pdf' }],
+      ],
+    },
+  });
 }
 
 async function handleDownloadPdf(bot: TelegramBot, chatId: number, telegramId: number) {

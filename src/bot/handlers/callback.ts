@@ -1,7 +1,7 @@
 import type TelegramBot from 'node-telegram-bot-api';
 import { isAuthorized } from '../../utils/auth';
 import { MESSAGES } from '../messages';
-import { segmentKeyboard, productKeyboard } from '../keyboards';
+import { segmentKeyboard, productKeyboard, afterAddKeyboard } from '../keyboards';
 import { searchWildberries } from '../../services/wildberries';
 import { searchLamoda } from '../../services/lamoda';
 import { generateCapsulePDF } from '../../services/pdf';
@@ -59,6 +59,8 @@ export function registerCallbackHandler(bot: TelegramBot): void {
         await handleDownloadPdf(bot, chatId, telegramId);
       } else if (data === 'cancel_url') {
         await bot.sendMessage(chatId, 'окей, не добавляем 👌');
+      } else if (data === 'search_more') {
+        await bot.sendMessage(chatId, '🔍 окей! напиши что ищем или скинь фото');
       }
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err);
@@ -218,6 +220,7 @@ async function handleAddToCapsule(
 
   await bot.sendMessage(chatId, MESSAGES.addedToCapsule(clientName, count), {
     parse_mode: 'Markdown',
+    reply_markup: afterAddKeyboard(),
   });
 
   if (count >= 20) {

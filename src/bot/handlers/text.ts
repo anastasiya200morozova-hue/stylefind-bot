@@ -1,7 +1,7 @@
 import type TelegramBot from 'node-telegram-bot-api';
 import { isAuthorized } from '../../utils/auth';
 import { MESSAGES } from '../messages';
-import { confirmKeyboard } from '../keyboards';
+import { confirmKeyboard, afterAddKeyboard } from '../keyboards';
 import { parseTextQuery } from '../../services/gemini';
 import type { SearchQuery } from '../../types';
 import {
@@ -195,7 +195,7 @@ export function registerTextHandler(bot: TelegramBot): void {
               additional_details: query.additional_details,
             };
             await updateSession(telegramId, { current_query: cleanQuery });
-            await bot.sendMessage(chatId, MESSAGES.addedToCapsule(clientName, count), { parse_mode: 'Markdown' });
+            await bot.sendMessage(chatId, MESSAGES.addedToCapsule(clientName, count), { parse_mode: 'Markdown', reply_markup: afterAddKeyboard() });
             if (count >= 20) await bot.sendMessage(chatId, MESSAGES.capsuleWarning(count), { parse_mode: 'Markdown' });
           }
         } else {

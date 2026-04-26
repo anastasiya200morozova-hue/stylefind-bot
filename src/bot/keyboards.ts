@@ -51,13 +51,9 @@ export function capsuleActionsKeyboard(): TelegramBot.InlineKeyboardMarkup {
 export function afterAddKeyboard(): TelegramBot.InlineKeyboardMarkup {
   return {
     inline_keyboard: [
-      [
-        { text: '📋 посмотреть подборку', callback_data: 'view_capsule' },
-        { text: '🔍 искать ещё', callback_data: 'search_more' },
-      ],
-      [
-        { text: '📄 скачать pdf', callback_data: 'download_pdf' },
-      ],
+      [{ text: '📋 посмотреть подборку', callback_data: 'view_capsule' }],
+      [{ text: '🔍 искать ещё', callback_data: 'search_more' }],
+      [{ text: '📄 скачать pdf', callback_data: 'download_pdf' }],
     ],
   };
 }

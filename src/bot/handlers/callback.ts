@@ -140,11 +140,31 @@ async function handleOutfitSearch(bot: TelegramBot, chatId: number, telegramId: 
 
   if (allProducts.length === 0) {
     const segmentLabel = { mass: 'до 3 000 ₽', mid: '3 000–15 000 ₽', premium: 'от 15 000 ₽' };
-    const searchText = items.map(i => i.item_type).join(', ');
+    const wbPriceMap = { mass: '0%3B300000', mid: '300000%3B1500000', premium: '1500000%3B5000000' };
+
     await bot.sendMessage(chatId,
-      `😔 *автопоиск временно недоступен*\n\nищи вручную — вот что нужно найти:\n_${searchText}_\n*бюджет: ${segmentLabel[segment]}*`,
+      `😔 *автопоиск временно недоступен*\n\nbюджет: *${segmentLabel[segment]}*\n\nвот ссылки для каждой вещи из образа 👇`,
       { parse_mode: 'Markdown' }
     );
+
+    // Отдельная ссылка для каждой вещи
+    for (const item of items.slice(0, 6)) {
+      const q = `${item.item_type}${item.color ? ' ' + item.color : ''}`;
+      const wbUrl = `https://www.wildberries.ru/catalog/0/search.aspx?search=${encodeURIComponent(q)}&priceU=${wbPriceMap[segment]}&sort=popular`;
+      const laUrl = `https://www.lamoda.ru/catalogsearch/result/?q=${encodeURIComponent(q)}`;
+      const aliUrl = `https://aliexpress.ru/wholesale?SearchText=${encodeURIComponent(q)}`;
+
+      await bot.sendMessage(chatId, `*${item.item_type}*${item.color ? ` · ${item.color}` : ''}`, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔍 WB', url: wbUrl }, { text: '🔍 Lamoda', url: laUrl }, { text: '🔍 Ali', url: aliUrl }],
+          ],
+        },
+      });
+    }
+
+    await bot.sendMessage(chatId, 'нашла что-то? пришли ссылку — добавлю в подборку 👇');
     await updateSession(telegramId, { state: 'idle' });
     return;
   }

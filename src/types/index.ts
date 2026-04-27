@@ -19,6 +19,8 @@ export interface SearchQuery {
   color: string | null;
   style: ItemStyle | null;
   additional_details: string | null;
+  brand?: string | null;
+  brand_search_query?: string | null;
   // Временное хранение ожидающего добавления товара (когда нет имени клиента)
   pending_product_id?: string;
   pending_source?: ProductSource;

@@ -40,14 +40,19 @@ function getClient(): OpenAI {
   return new OpenAI({ apiKey });
 }
 
-const PHOTO_PROMPT = `Ты опытный стилист и знаешь как искать одежду на wildberries и lamoda.
-Проанализируй вещь на фото и верни ТОЛЬКО JSON без markdown:
+const PHOTO_PROMPT = `Ты опытный стилист с глубоким знанием брендов и маркетплейсов.
+Внимательно изучи фото и верни ТОЛЬКО JSON без markdown:
 {
-  "item_type": "тип вещи по-русски (пальто, джинсы, платье и т.д.)",
-  "color": "основной цвет по-русски",
+  "item_type": "точный тип вещи по-русски с деталями (например: высокие кроссовки на платформе, широкие джинсы прямого кроя, оверсайз пальто)",
+  "color": "точный цвет, включая оттенок (например: молочно-белый, выгоревший синий, тёмно-коричневый)",
   "style": "casual | business | sport | evening | streetwear",
-  "additional_details": "силуэт, длина, фактура (макс 10 слов)",
-  "search_query": "готовый поисковый запрос для wildberries — максимально точный, как реально ищут на маркетплейсе. Например: широкие джинсы прямой крой черные оверсайз женские"
+  "brand": "название бренда если видно на фото или можно уверенно определить по дизайну, иначе null",
+  "material": "материал если определяется (кожа, замша, денім, хлопок, нейлон и т.д.) или null",
+  "sole": "тип подошвы для обуви (высокая, платформа, плоская, толстая) или null для одежды",
+  "fit": "посадка (оверсайз, облегающий, прямой, свободный, слим) или null",
+  "details": "ключевые особенности вещи которые важны при поиске (макс 15 слов)",
+  "search_query": "идеальный запрос для wildberries — конкретный, с деталями. Например: кроссовки на высокой платформе белые кожаные женские или пальто оверсайз серое длинное с поясом",
+  "brand_search_query": "если бренд известен — запрос с брендом. Например: New Balance 530 white или Zara wide leg jeans. Иначе null"
 }`;
 
 const TEXT_PROMPT = (text: string) => `Пользователь ищет вещь одежды. Его описание: "${text}"
@@ -64,17 +69,25 @@ function parseJson(text: string): SearchQuery | null {
     const clean = text.replace(/```json\n?|\n?```/g, '').trim();
     const parsed = JSON.parse(clean) as {
       item_type?: string; color?: string | null;
-      style?: string | null; additional_details?: string | null;
-      search_query?: string | null;
+      style?: string | null; details?: string | null;
+      brand?: string | null; material?: string | null;
+      sole?: string | null; fit?: string | null;
+      search_query?: string | null; brand_search_query?: string | null;
     };
     if (!parsed.item_type) return null;
+
+    // Собираем детали: материал + подошва + посадка + особенности
+    const detailParts = [parsed.material, parsed.sole, parsed.fit, parsed.details]
+      .filter(Boolean).join(', ');
+
     return {
       type: 'photo',
       item_type: parsed.item_type,
       color: parsed.color ?? null,
       style: (parsed.style as ItemStyle) ?? null,
-      // Используем search_query как additional_details для лучшего поиска
-      additional_details: parsed.search_query ?? parsed.additional_details ?? null,
+      additional_details: parsed.search_query ?? (detailParts || null),
+      brand: parsed.brand ?? null,
+      brand_search_query: parsed.brand_search_query ?? null,
     };
   } catch { return null; }
 }

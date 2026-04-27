@@ -11,7 +11,11 @@ const PRICE_RANGES: Record<Segment, { min: number; max: number }> = {
   premium: { min: 1500000, max: 5000000 },
 };
 
-function buildSearchQuery(query: SearchQuery, withColor = true): string {
+function buildSearchQuery(query: SearchQuery, segment: Segment = 'mid', withColor = true): string {
+  // Для премиум сегмента с известным брендом — ищем бренд напрямую
+  if (segment === 'premium' && query.brand_search_query) {
+    return query.brand_search_query;
+  }
   const parts = [query.item_type];
   if (withColor && query.color) parts.push(query.color);
   if (query.additional_details) parts.push(query.additional_details);
@@ -91,14 +95,14 @@ export async function searchWildberries(
   telegramId: number
 ): Promise<Product[]> {
   const start = Date.now();
-  const queryStr = buildSearchQuery(query);
+  const queryStr = buildSearchQuery(query, segment);
 
   try {
     let products = await fetchWbViaCurl(queryStr, segment);
 
     // Fallback без цвета при 0 результатов
     if (products.length === 0) {
-      products = await fetchWbViaCurl(buildSearchQuery(query, false), segment);
+      products = await fetchWbViaCurl(buildSearchQuery(query, segment, false), segment);
     }
 
     await log('wb_search', { query: queryStr, segment }, { count: products.length }, Date.now() - start, undefined, telegramId);

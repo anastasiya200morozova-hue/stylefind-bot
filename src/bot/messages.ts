@@ -35,7 +35,7 @@ _пиши без запятых и максимально подробно_`,
   newClientStarted: '🆕 погнали! отправь фото или опиши вещь',
 
   confirmQuery: (q: SearchQuery) =>
-    `🔥 *вижу:* ${q.item_type}${q.color ? `, ${q.color}` : ''}${q.style ? `, ${q.style}` : ''}${q.additional_details ? `\n_${q.additional_details}_` : ''}\n\nэто то, что нужно?`,
+    `🔥 *вижу:* ${q.item_type}${q.color ? `, ${q.color}` : ''}${q.style ? `, ${q.style}` : ''}${q.brand ? `\n🏷️ *бренд:* ${q.brand}` : ''}${q.additional_details ? `\n_${q.additional_details}_` : ''}\n\nэто то, что нужно?`,
 
   chooseSegment: '💸 *какой бюджет?*',
 

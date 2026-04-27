@@ -403,6 +403,18 @@ async function handleSegment(
       });
     }
   }
+
+  await bot.sendMessage(chatId,
+    '💌 понравилось что-то в интернете? пришли ссылку — добавлю в подборку',
+    {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🗂️ посмотреть подборку', callback_data: 'view_capsule' }],
+          [{ text: '🔍 искать ещё', callback_data: 'search_more' }],
+        ],
+      },
+    }
+  );
 }
 
 async function handleAddToCapsule(

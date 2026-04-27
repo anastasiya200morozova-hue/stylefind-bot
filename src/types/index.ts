@@ -2,6 +2,7 @@ export type BotState =
   | 'idle'
   | 'waiting_segment'
   | 'choosing_size'
+  | 'collecting_outfit'
   | 'searching'
   | 'browsing_results'
   | 'building_capsule';

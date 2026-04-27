@@ -5,6 +5,7 @@ import { segmentKeyboard, productKeyboard, afterAddKeyboard, sizeKeyboard, detec
 import { searchWildberries } from '../../services/wildberries';
 import { searchLamoda } from '../../services/lamoda';
 import { generateCapsulePDF } from '../../services/pdf';
+import { analyzeOutfit } from '../../services/gemini';
 import type { Segment, Product, SearchQuery } from '../../types';
 
 function buildFallbackSearchText(query: SearchQuery): string {
@@ -79,12 +80,143 @@ export function registerCallbackHandler(bot: TelegramBot): void {
         await bot.sendMessage(chatId, '🔍 окей! напиши что ищем или скинь фото');
       } else if (data === 'view_capsule') {
         await handleViewCapsule(bot, chatId, telegramId);
+      } else if (data === 'analyze_outfit') {
+        await handleAnalyzeOutfit(bot, chatId, telegramId);
+      } else if (data.startsWith('outfit_segment:')) {
+        const segment = data.split(':')[1] as Segment;
+        await handleOutfitSearch(bot, chatId, telegramId, segment);
       }
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err);
       console.error('[callback]', data, error);
       await bot.sendMessage(chatId, '❌ что-то пошло не так, попробуй ещё раз');
     }
+  });
+}
+
+async function handleOutfitSearch(bot: TelegramBot, chatId: number, telegramId: number, segment: Segment) {
+  const session = await getOrCreateSession(telegramId);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const savedItems = (session.current_query as any)?.additional_details;
+  if (!savedItems) {
+    await bot.sendMessage(chatId, '😔 потеряла список вещей, попробуй сначала');
+    return;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const items: any[] = JSON.parse(savedItems);
+  const statusMsg = await bot.sendMessage(chatId, `🔍 *ищу ${items.length} вещей для образа...*`, { parse_mode: 'Markdown' });
+
+  await clearSearchResults(telegramId);
+  const allProducts: Product[] = [];
+
+  for (const item of items.slice(0, 6)) {
+    const q: SearchQuery = {
+      type: 'text', item_type: item.item_type, color: item.color,
+      style: item.style, additional_details: item.additional_details,
+    };
+    const [wbRes, laRes] = await Promise.allSettled([
+      searchWildberries(q, segment, telegramId),
+      searchLamoda(q, segment, telegramId),
+    ]);
+    const wbProducts = wbRes.status === 'fulfilled' ? wbRes.value.slice(0, 2) : [];
+    const laProducts = laRes.status === 'fulfilled' ? laRes.value.slice(0, 1) : [];
+    allProducts.push(...wbProducts, ...laProducts);
+  }
+
+  await bot.deleteMessage(chatId, statusMsg.message_id);
+
+  if (allProducts.length === 0) {
+    const segmentLabel = { mass: 'до 3 000 ₽', mid: '3 000–15 000 ₽', premium: 'от 15 000 ₽' };
+    const searchText = items.map(i => i.item_type).join(', ');
+    await bot.sendMessage(chatId,
+      `😔 *автопоиск временно недоступен*\n\nищи вручную — вот что нужно найти:\n_${searchText}_\n*бюджет: ${segmentLabel[segment]}*`,
+      { parse_mode: 'Markdown' }
+    );
+    await updateSession(telegramId, { state: 'idle' });
+    return;
+  }
+
+  await saveSearchResults(telegramId, session.id, allProducts);
+  await updateSession(telegramId, { state: 'browsing_results' });
+
+  await bot.sendMessage(chatId, `✨ *собрала образ — ${allProducts.length} вещей* 👇`, { parse_mode: 'Markdown' });
+
+  for (const product of allProducts.slice(0, 10)) {
+    const storeLabel = product.source === 'wildberries' ? 'Wildberries' : 'Lamoda';
+    const caption = `*${product.name}*\n${product.price.toLocaleString('ru-RU')} руб. · ${storeLabel}`;
+    try {
+      await bot.sendPhoto(chatId, product.image_url, {
+        caption, parse_mode: 'Markdown',
+        reply_markup: productKeyboard(product.product_id, product.source, product.url),
+      });
+    } catch {
+      await bot.sendMessage(chatId, caption, {
+        parse_mode: 'Markdown',
+        reply_markup: productKeyboard(product.product_id, product.source, product.url),
+      });
+    }
+  }
+}
+
+async function handleAnalyzeOutfit(bot: TelegramBot, chatId: number, telegramId: number) {
+  const session = await getOrCreateSession(telegramId);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const query = session.current_query as any;
+  const photoIds: string[] = query?.outfit_photo_ids ?? [];
+
+  if (photoIds.length === 0) {
+    await bot.sendMessage(chatId, 'сначала пришли хотя бы одно фото 📸');
+    return;
+  }
+
+  const statusMsg = await bot.sendMessage(chatId, `🧠 *анализирую ${photoIds.length} фото...*`, { parse_mode: 'Markdown' });
+
+  // Скачиваем фото и конвертируем в base64
+  const base64Images: string[] = [];
+  for (const fileId of photoIds) {
+    try {
+      const link = await (bot as any).getFileLink(fileId);
+      const resp = await fetch(link, { signal: AbortSignal.timeout(10000) });
+      if (resp.ok) {
+        base64Images.push(Buffer.from(await resp.arrayBuffer()).toString('base64'));
+      }
+    } catch { /* пропускаем фото если не загрузилось */ }
+  }
+
+  if (base64Images.length === 0) {
+    await bot.deleteMessage(chatId, statusMsg.message_id);
+    await bot.sendMessage(chatId, '😔 не смогла загрузить фото, попробуй ещё раз');
+    return;
+  }
+
+  const items = await analyzeOutfit(base64Images, telegramId);
+  await bot.deleteMessage(chatId, statusMsg.message_id);
+
+  if (items.length === 0) {
+    await bot.sendMessage(chatId, '😔 не смогла определить вещи на фото, попробуй другие фото');
+    return;
+  }
+
+  const itemsList = items.map((item, i) => `${i + 1}. *${item.item_type}*${item.color ? ` · ${item.color}` : ''}`).join('\n');
+  await bot.sendMessage(chatId,
+    `✨ *нашла в образе:*\n\n${itemsList}\n\n_выбери бюджет — найду всё это на маркетплейсах_`,
+    {
+      parse_mode: 'Markdown',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: 'до 3 000 ₽', callback_data: 'outfit_segment:mass' }],
+          [{ text: '3 000 — 15 000 ₽', callback_data: 'outfit_segment:mid' }],
+          [{ text: 'от 15 000 ₽', callback_data: 'outfit_segment:premium' }],
+        ],
+      },
+    }
+  );
+
+  // Сохраняем список вещей для поиска
+  await updateSession(telegramId, {
+    state: 'waiting_segment',
+    current_query: { type: 'text', item_type: 'outfit', color: null, style: null, additional_details: JSON.stringify(items) } as never,
   });
 }
 

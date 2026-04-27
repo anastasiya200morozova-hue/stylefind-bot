@@ -125,3 +125,52 @@ export async function parseTextQuery(text: string, telegramId: number): Promise<
     return parseFallback(text);
   }
 }
+
+// ─── Анализ образа из нескольких фото ────────────────────────────────────────
+export interface OutfitItem {
+  item_type: string;
+  color: string | null;
+  style: string | null;
+  additional_details: string | null;
+}
+
+export async function analyzeOutfit(
+  base64Images: string[],
+  telegramId: number
+): Promise<OutfitItem[]> {
+  const start = Date.now();
+  const prompt = `Ты помощник стилиста. На фото показан образ (outfit). Определи ВСЕ вещи в образе и верни ТОЛЬКО JSON без markdown:
+{
+  "items": [
+    {"item_type": "тип вещи по-русски", "color": "цвет по-русски", "style": "casual|business|sport|evening|streetwear", "additional_details": "детали (макс 8 слов)"}
+  ]
+}
+Включай только одежду и обувь. Не включай аксессуары типа сумок.`;
+
+  try {
+    const client = getClient();
+    const imageContent = base64Images.map(b64 => ({
+      type: 'image_url' as const,
+      image_url: { url: `data:image/jpeg;base64,${b64}`, detail: 'low' as const },
+    }));
+
+    const response = await client.chat.completions.create({
+      model: 'gpt-4o-mini',
+      max_tokens: 500,
+      messages: [{
+        role: 'user',
+        content: [...imageContent, { type: 'text' as const, text: prompt }],
+      }],
+    });
+
+    const text = response.choices[0]?.message?.content ?? '';
+    const clean = text.replace(/```json\n?|\n?```/g, '').trim();
+    const parsed = JSON.parse(clean) as { items: OutfitItem[] };
+    await log('outfit_analysis', { photoCount: base64Images.length }, { itemCount: parsed.items.length }, Date.now() - start, undefined, telegramId);
+    return parsed.items ?? [];
+  } catch (err) {
+    const error = err instanceof Error ? err.message : String(err);
+    await log('outfit_analysis', { photoCount: base64Images.length }, {}, Date.now() - start, error, telegramId);
+    return [];
+  }
+}

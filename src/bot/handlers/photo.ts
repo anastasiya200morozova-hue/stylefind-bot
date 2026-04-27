@@ -4,8 +4,9 @@ import { MESSAGES } from '../messages';
 import { confirmKeyboard } from '../keyboards';
 import { analyzePhoto } from '../../services/gemini';
 import { getOrCreateSession, updateSession } from '../../services/supabase';
+import type { SearchQuery } from '../../types';
 
-const MAX_PHOTO_SIZE = 20 * 1024 * 1024; // 20 МБ
+const MAX_PHOTO_SIZE = 20 * 1024 * 1024;
 
 export function registerPhotoHandler(bot: TelegramBot): void {
   bot.on('photo', async (msg) => {
@@ -15,7 +16,6 @@ export function registerPhotoHandler(bot: TelegramBot): void {
     const chatId = msg.chat.id;
 
     try {
-      // Берём фото максимального размера
       const photos = msg.photo!;
       const largest = photos[photos.length - 1];
 
@@ -24,20 +24,56 @@ export function registerPhotoHandler(bot: TelegramBot): void {
         return;
       }
 
-      // Сбрасываем состояние при новом фото
-      await updateSession(telegramId, { state: 'idle', current_query: null });
+      const session = await getOrCreateSession(telegramId);
 
+      // ── Режим сборки образа ──
+      if (session.state === 'collecting_outfit') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const query = (session.current_query as any) ?? {};
+        const photoIds: string[] = query.outfit_photo_ids ?? [];
+
+        if (photoIds.length >= 5) {
+          await bot.sendMessage(chatId, 'уже 5 фото — нажми *найти образ* 👇', { parse_mode: 'Markdown' });
+          return;
+        }
+
+        photoIds.push(largest.file_id);
+        await updateSession(telegramId, {
+          current_query: { ...query, outfit_photo_ids: photoIds } as never,
+        });
+
+        const remaining = 5 - photoIds.length;
+        if (photoIds.length < 5) {
+          await bot.sendMessage(chatId,
+            `📸 фото ${photoIds.length} получила!${remaining > 0 ? ` можешь прислать ещё ${remaining}` : ''}\n\nили нажми кнопку ниже 👇`,
+            {
+              reply_markup: {
+                inline_keyboard: [[
+                  { text: '🔍 найти образ', callback_data: 'analyze_outfit' },
+                ]],
+              },
+            }
+          );
+        } else {
+          await bot.sendMessage(chatId, '5 фото получила! нажми *найти образ* 👇',
+            {
+              parse_mode: 'Markdown',
+              reply_markup: { inline_keyboard: [[{ text: '🔍 найти образ', callback_data: 'analyze_outfit' }]] },
+            }
+          );
+        }
+        return;
+      }
+
+      // ── Обычный режим ──
+      await updateSession(telegramId, { state: 'idle', current_query: null });
       const statusMsg = await bot.sendMessage(chatId, MESSAGES.analyzingPhoto);
 
-      // Скачиваем фото
       const fileLink = await bot.getFileLink(largest.file_id);
       const response = await fetch(fileLink, { signal: AbortSignal.timeout(15000) });
       if (!response.ok) throw new Error('Не удалось скачать фото');
 
-      const buffer = await response.arrayBuffer();
-      const base64 = Buffer.from(buffer).toString('base64');
-
-      // Анализируем через Gemini
+      const base64 = Buffer.from(await response.arrayBuffer()).toString('base64');
       const query = await analyzePhoto(base64, telegramId);
 
       await bot.deleteMessage(chatId, statusMsg.message_id);
@@ -47,22 +83,17 @@ export function registerPhotoHandler(bot: TelegramBot): void {
         return;
       }
 
-      // Сохраняем в сессию и ждём подтверждения
-      const session = await getOrCreateSession(telegramId);
       await updateSession(telegramId, {
         state: 'waiting_segment',
-        current_query: query,
+        current_query: query as SearchQuery,
       });
 
       await bot.sendMessage(chatId, MESSAGES.confirmQuery(query), {
         parse_mode: 'Markdown',
         reply_markup: confirmKeyboard(),
       });
-
-      void session; // используется выше через getOrCreateSession
     } catch (err) {
-      const error = err instanceof Error ? err.message : String(err);
-      console.error('[photo handler]', error);
+      console.error('[photo handler]', err instanceof Error ? err.message : err);
       await bot.sendMessage(chatId, MESSAGES.geminiError);
     }
   });

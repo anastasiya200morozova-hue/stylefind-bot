@@ -46,10 +46,10 @@ function handleStart(bot: TelegramBot) {
       parse_mode: 'Markdown',
       reply_markup: {
         inline_keyboard: [
-          [{ text: '📸 отправить фото референса', callback_data: 'hint_photo' }],
+          [{ text: '📸 скинуть фото референса', callback_data: 'hint_photo' }],
           [{ text: '✍🏽 описать вещь текстом', callback_data: 'hint_text' }],
-          [{ text: '✨ собрать целый образ', callback_data: 'start_outfit' }],
-          [{ text: '💾 моя подборка', callback_data: 'view_capsule' }],
+          [{ text: '🪩 собрать целый образ', callback_data: 'start_outfit' }],
+          [{ text: '🗂️ моя подборка', callback_data: 'view_capsule' }],
         ],
       },
     });

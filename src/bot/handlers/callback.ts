@@ -75,11 +75,11 @@ export function registerCallbackHandler(bot: TelegramBot): void {
       } else if (data === 'download_pdf') {
         await handleDownloadPdf(bot, chatId, telegramId);
       } else if (data === 'cancel_url') {
-        await bot.sendMessage(chatId, 'окей, не добавляем 👌');
+        await bot.sendMessage(chatId, 'ок, не добавляем 🫡');
       } else if (data === 'search_more') {
-        await bot.sendMessage(chatId, '🔍 окей! напиши что ищем или скинь фото');
+        await bot.sendMessage(chatId, '💫 напиши что ищем или скинь фото');
       } else if (data === 'hint_photo') {
-        await bot.sendMessage(chatId, '📸 отправь фото или скриншот вещи — разберу и найду похожее');
+        await bot.sendMessage(chatId, '📸 скинь фото или скриншот вещи — разберу и найду похожее');
       } else if (data === 'hint_text') {
         await bot.sendMessage(chatId, '✍🏽 напиши что ищешь без запятых\n_например: синие широкие джинсы низкая посадка_', { parse_mode: 'Markdown' });
       } else if (data === 'start_outfit') {
@@ -188,7 +188,7 @@ async function handleOutfitSearch(bot: TelegramBot, chatId: number, telegramId: 
   await saveSearchResults(telegramId, session.id, allProducts);
   await updateSession(telegramId, { state: 'browsing_results' });
 
-  await bot.sendMessage(chatId, `✨ *образ готов — ${allProducts.length} вещей* 👇\n\n_➕ добавляй понравившееся в подборку_`, { parse_mode: 'Markdown' });
+  await bot.sendMessage(chatId, `🪩 *образ готов — ${allProducts.length} вещей* 👇\n\n_➕ добавляй понравившееся в подборку_`, { parse_mode: 'Markdown' });
 
   for (const product of allProducts.slice(0, 10)) {
     const storeLabel = product.source === 'wildberries' ? 'Wildberries' : 'Lamoda';
@@ -259,7 +259,7 @@ async function handleAnalyzeOutfit(bot: TelegramBot, chatId: number, telegramId:
 
   const itemsList = items.map((item, i) => `${i + 1}. *${item.item_type}*${item.color ? ` · ${item.color}` : ''}`).join('\n');
   await bot.sendMessage(chatId,
-    `✨ *вот что в образе:*\n\n${itemsList}\n\n_выбери бюджет — найду всё это на маркетплейсах_`,
+    `✨ *🔥 *вот что в образе:**\n\n${itemsList}\n\n_выбери бюджет — найду всё это на маркетплейсах_`,
     {
       parse_mode: 'Markdown',
       reply_markup: {

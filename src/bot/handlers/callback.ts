@@ -133,10 +133,17 @@ async function handleOutfitSearch(bot: TelegramBot, chatId: number, telegramId: 
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const items: any[] = JSON.parse(savedItems);
-  const statusMsg = await bot.sendMessage(chatId, `🔍 *ищу ${items.length} вещей для образа...*`, { parse_mode: 'Markdown' });
+  const segmentLabel = { mass: 'до 3 000 ₽', mid: '3 000–15 000 ₽', premium: 'от 15 000 ₽' };
+  const wbPriceMap = { mass: '0%3B300000', mid: '300000%3B1500000', premium: '1500000%3B5000000' };
+
+  const statusMsg = await bot.sendMessage(chatId, `🕵🏽 *ищу ${items.length} вещей из образа...*`, { parse_mode: 'Markdown' });
 
   await clearSearchResults(telegramId);
   const allProducts: Product[] = [];
+
+  // Ищем каждую вещь отдельно и сразу показываем результат
+  await bot.deleteMessage(chatId, statusMsg.message_id);
+  await bot.sendMessage(chatId, `🪩 *образ — ${segmentLabel[segment]}*\n\n_нашла — добавляй в подборку, не нашла — открой поиск_ 👇`, { parse_mode: 'Markdown' });
 
   for (const item of items.slice(0, 6)) {
     const q: SearchQuery = {
@@ -149,62 +156,52 @@ async function handleOutfitSearch(bot: TelegramBot, chatId: number, telegramId: 
     ]);
     const wbProducts = wbRes.status === 'fulfilled' ? wbRes.value.slice(0, 2) : [];
     const laProducts = laRes.status === 'fulfilled' ? laRes.value.slice(0, 1) : [];
-    allProducts.push(...wbProducts, ...laProducts);
-  }
+    const found = [...wbProducts, ...laProducts];
 
-  await bot.deleteMessage(chatId, statusMsg.message_id);
-
-  if (allProducts.length === 0) {
-    const segmentLabel = { mass: 'до 3 000 ₽', mid: '3 000–15 000 ₽', premium: 'от 15 000 ₽' };
-    const wbPriceMap = { mass: '0%3B300000', mid: '300000%3B1500000', premium: '1500000%3B5000000' };
-
+    // Заголовок вещи
     await bot.sendMessage(chatId,
-      `😔 *автопоиск временно недоступен*\n\nbюджет: *${segmentLabel[segment]}*\n\nвот ссылки для каждой вещи из образа 👇`,
+      `👗 *${item.item_type}*${item.color ? ` · ${item.color}` : ''}`,
       { parse_mode: 'Markdown' }
     );
 
-    // Отдельная ссылка для каждой вещи
-    for (const item of items.slice(0, 6)) {
-      const q = `${item.item_type}${item.color ? ' ' + item.color : ''}`;
-      const wbUrl = `https://www.wildberries.ru/catalog/0/search.aspx?search=${encodeURIComponent(q)}&priceU=${wbPriceMap[segment]}&sort=popular`;
-      const laUrl = `https://www.lamoda.ru/catalogsearch/result/?q=${encodeURIComponent(q)}`;
-      const aliUrl = `https://aliexpress.ru/wholesale?SearchText=${encodeURIComponent(q)}`;
-
-      await bot.sendMessage(chatId, `*${item.item_type}*${item.color ? ` · ${item.color}` : ''}`, {
+    if (found.length > 0) {
+      // Показываем найденные карточки
+      allProducts.push(...found);
+      for (const product of found) {
+        const storeLabel = product.source === 'wildberries' ? 'WB' : 'Lamoda';
+        const caption = `*${product.name}*\n${product.price.toLocaleString('ru-RU')} руб. · ${storeLabel}`;
+        try {
+          await bot.sendPhoto(chatId, product.image_url, {
+            caption, parse_mode: 'Markdown',
+            reply_markup: productKeyboard(product.product_id, product.source, product.url),
+          });
+        } catch {
+          await bot.sendMessage(chatId, caption, {
+            parse_mode: 'Markdown',
+            reply_markup: productKeyboard(product.product_id, product.source, product.url),
+          });
+        }
+      }
+    } else {
+      // Не нашли — даём ссылки для ручного поиска
+      const qText = `${item.item_type}${item.color ? ' ' + item.color : ''}`;
+      await bot.sendMessage(chatId, '_автопоиск не нашёл — поищи вручную:_', {
         parse_mode: 'Markdown',
         reply_markup: {
-          inline_keyboard: [
-            [{ text: '🔍 WB', url: wbUrl }, { text: '🔍 Lamoda', url: laUrl }, { text: '🔍 Ali', url: aliUrl }],
-          ],
+          inline_keyboard: [[
+            { text: '🔍 WB', url: `https://www.wildberries.ru/catalog/0/search.aspx?search=${encodeURIComponent(qText)}&priceU=${wbPriceMap[segment]}&sort=popular` },
+            { text: '🔍 Lamoda', url: `https://www.lamoda.ru/catalogsearch/result/?q=${encodeURIComponent(qText)}` },
+            { text: '🔍 Ali', url: `https://aliexpress.ru/wholesale?SearchText=${encodeURIComponent(qText)}` },
+          ]],
         },
       });
     }
-
-    await bot.sendMessage(chatId, 'нашёл что-то? пришли ссылку — добавлю в подборку 👇');
-    await updateSession(telegramId, { state: 'idle' });
-    return;
   }
 
-  await saveSearchResults(telegramId, session.id, allProducts);
+  if (allProducts.length > 0) {
+    await saveSearchResults(telegramId, session.id, allProducts);
+  }
   await updateSession(telegramId, { state: 'browsing_results' });
-
-  await bot.sendMessage(chatId, `🪩 *образ готов — ${allProducts.length} вещей* 👇\n\n_➕ добавляй понравившееся в подборку_`, { parse_mode: 'Markdown' });
-
-  for (const product of allProducts.slice(0, 10)) {
-    const storeLabel = product.source === 'wildberries' ? 'Wildberries' : 'Lamoda';
-    const caption = `*${product.name}*\n${product.price.toLocaleString('ru-RU')} руб. · ${storeLabel}`;
-    try {
-      await bot.sendPhoto(chatId, product.image_url, {
-        caption, parse_mode: 'Markdown',
-        reply_markup: productKeyboard(product.product_id, product.source, product.url),
-      });
-    } catch {
-      await bot.sendMessage(chatId, caption, {
-        parse_mode: 'Markdown',
-        reply_markup: productKeyboard(product.product_id, product.source, product.url),
-      });
-    }
-  }
 
   // Кнопки после всех карточек
   await bot.sendMessage(chatId, 'что дальше?', {

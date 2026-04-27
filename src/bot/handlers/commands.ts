@@ -42,7 +42,17 @@ function handleOutfit(bot: TelegramBot) {
 function handleStart(bot: TelegramBot) {
   return async (msg: TelegramBot.Message) => {
     if (!isAuthorized(msg.from?.id)) return;
-    await bot.sendMessage(msg.chat.id, MESSAGES.start, { parse_mode: 'Markdown' });
+    await bot.sendMessage(msg.chat.id, MESSAGES.start, {
+      parse_mode: 'Markdown',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '📸 отправить фото референса', callback_data: 'hint_photo' }],
+          [{ text: '✍🏽 описать вещь текстом', callback_data: 'hint_text' }],
+          [{ text: '✨ собрать целый образ', callback_data: 'start_outfit' }],
+          [{ text: '💾 моя подборка', callback_data: 'view_capsule' }],
+        ],
+      },
+    });
   };
 }
 

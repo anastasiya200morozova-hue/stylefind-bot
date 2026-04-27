@@ -45,7 +45,7 @@ export function registerPhotoHandler(bot: TelegramBot): void {
         const remaining = 5 - photoIds.length;
         if (photoIds.length < 5) {
           await bot.sendMessage(chatId,
-            `📸 фото ${photoIds.length} получила!${remaining > 0 ? ` можешь прислать ещё ${remaining}` : ''}\n\nили нажми кнопку ниже 👇`,
+            `📸 фото ${photoIds.length} получено!${remaining > 0 ? ` можешь прислать ещё ${remaining}` : ''}\n\nили нажми кнопку ниже 👇`,
             {
               reply_markup: {
                 inline_keyboard: [[
@@ -55,7 +55,7 @@ export function registerPhotoHandler(bot: TelegramBot): void {
             }
           );
         } else {
-          await bot.sendMessage(chatId, '5 фото получила! нажми *найти образ* 👇',
+          await bot.sendMessage(chatId, '5 фото получено! нажми *найти образ* 👇',
             {
               parse_mode: 'Markdown',
               reply_markup: { inline_keyboard: [[{ text: '🔍 найти образ', callback_data: 'analyze_outfit' }]] },

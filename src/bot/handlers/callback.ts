@@ -78,6 +78,22 @@ export function registerCallbackHandler(bot: TelegramBot): void {
         await bot.sendMessage(chatId, 'окей, не добавляем 👌');
       } else if (data === 'search_more') {
         await bot.sendMessage(chatId, '🔍 окей! напиши что ищем или скинь фото');
+      } else if (data === 'hint_photo') {
+        await bot.sendMessage(chatId, '📸 отправь фото или скриншот вещи — разберу и найду похожее');
+      } else if (data === 'hint_text') {
+        await bot.sendMessage(chatId, '✍🏽 напиши что ищешь без запятых\n_например: синие широкие джинсы низкая посадка_', { parse_mode: 'Markdown' });
+      } else if (data === 'start_outfit') {
+        await updateSession(telegramId, {
+          state: 'collecting_outfit',
+          current_query: { type: 'photo', item_type: '', color: null, style: null, additional_details: null, outfit_photo_ids: [] } as never,
+        });
+        await bot.sendMessage(chatId,
+          `✨ *режим сборки образа*\n\nотправляй фото по одному — скриншоты с pinterest или фото готового образа 📸\n\n_можно до 5 штук — чем больше, тем точнее результат_`,
+          {
+            parse_mode: 'Markdown',
+            reply_markup: { inline_keyboard: [[{ text: '🔍 найти образ', callback_data: 'analyze_outfit' }]] },
+          }
+        );
       } else if (data === 'new_outfit') {
         await updateSession(telegramId, {
           state: 'collecting_outfit',
@@ -164,7 +180,7 @@ async function handleOutfitSearch(bot: TelegramBot, chatId: number, telegramId: 
       });
     }
 
-    await bot.sendMessage(chatId, 'нашла что-то? пришли ссылку — добавлю в подборку 👇');
+    await bot.sendMessage(chatId, 'нашёл что-то? пришли ссылку — добавлю в подборку 👇');
     await updateSession(telegramId, { state: 'idle' });
     return;
   }
@@ -172,7 +188,7 @@ async function handleOutfitSearch(bot: TelegramBot, chatId: number, telegramId: 
   await saveSearchResults(telegramId, session.id, allProducts);
   await updateSession(telegramId, { state: 'browsing_results' });
 
-  await bot.sendMessage(chatId, `✨ *собрала образ — ${allProducts.length} вещей* 👇\n\n_➕ добавляй понравившееся в подборку_`, { parse_mode: 'Markdown' });
+  await bot.sendMessage(chatId, `✨ *образ готов — ${allProducts.length} вещей* 👇\n\n_➕ добавляй понравившееся в подборку_`, { parse_mode: 'Markdown' });
 
   for (const product of allProducts.slice(0, 10)) {
     const storeLabel = product.source === 'wildberries' ? 'Wildberries' : 'Lamoda';
@@ -229,7 +245,7 @@ async function handleAnalyzeOutfit(bot: TelegramBot, chatId: number, telegramId:
 
   if (base64Images.length === 0) {
     await bot.deleteMessage(chatId, statusMsg.message_id);
-    await bot.sendMessage(chatId, '😔 не смогла загрузить фото, попробуй ещё раз');
+    await bot.sendMessage(chatId, '😔 не удалось загрузить фото, попробуй ещё раз');
     return;
   }
 
@@ -237,13 +253,13 @@ async function handleAnalyzeOutfit(bot: TelegramBot, chatId: number, telegramId:
   await bot.deleteMessage(chatId, statusMsg.message_id);
 
   if (items.length === 0) {
-    await bot.sendMessage(chatId, '😔 не смогла определить вещи на фото, попробуй другие фото');
+    await bot.sendMessage(chatId, '😔 не удалось определить вещи на фото, попробуй другие фото');
     return;
   }
 
   const itemsList = items.map((item, i) => `${i + 1}. *${item.item_type}*${item.color ? ` · ${item.color}` : ''}`).join('\n');
   await bot.sendMessage(chatId,
-    `✨ *нашла в образе:*\n\n${itemsList}\n\n_выбери бюджет — найду всё это на маркетплейсах_`,
+    `✨ *вот что в образе:*\n\n${itemsList}\n\n_выбери бюджет — найду всё это на маркетплейсах_`,
     {
       parse_mode: 'Markdown',
       reply_markup: {
@@ -350,7 +366,7 @@ async function handleSegment(
     const aliUrl = `https://aliexpress.ru/wholesale?SearchText=${encodeURIComponent(searchText)}`;
 
     await bot.sendMessage(chatId,
-      `😔 *автоматический поиск временно недоступен*\n\nоткрой ссылки вручную — там уже нужный запрос\n*бюджет: ${segmentLabel[segment]}*\n\nнашла подходящее? пришли ссылку на товар, добавлю в подборку 👇`,
+      `😔 *автоматический поиск временно недоступен*\n\nоткрой ссылки вручную — там уже нужный запрос\n*бюджет: ${segmentLabel[segment]}*\n\nнашёл подходящее? пришли ссылку на товар, добавлю в подборку 👇`,
       {
         parse_mode: 'Markdown',
         reply_markup: {

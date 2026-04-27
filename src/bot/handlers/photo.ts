@@ -5,21 +5,21 @@ import { analyzePhoto } from '../../services/gemini';
 import { getOrCreateSession, updateSession } from '../../services/supabase';
 import type { SearchQuery } from '../../types';
 
-// Загружаем фото на telegra.ph и получаем публичный URL для поиска по картинке
-async function uploadToTelegraph(imageBuffer: ArrayBuffer): Promise<string | null> {
+// Загружаем фото на catbox.moe — получаем публичный URL для поиска по картинке
+async function uploadForVisualSearch(telegramFileUrl: string): Promise<string | null> {
   try {
     const formData = new FormData();
-    const blob = new Blob([imageBuffer], { type: 'image/jpeg' });
-    formData.append('file', blob, 'photo.jpg');
+    formData.append('reqtype', 'urlupload');
+    formData.append('url', telegramFileUrl);
 
-    const resp = await fetch('https://telegra.ph/upload', {
+    const resp = await fetch('https://catbox.moe/user/api.php', {
       method: 'POST',
       body: formData,
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(12000),
     });
     if (!resp.ok) return null;
-    const data = await resp.json() as Array<{ src: string }>;
-    return data[0]?.src ? `https://telegra.ph${data[0].src}` : null;
+    const url = (await resp.text()).trim();
+    return url.startsWith('https://') ? url : null;
   } catch {
     return null;
   }
@@ -95,10 +95,10 @@ export function registerPhotoHandler(bot: TelegramBot): void {
       const imageBuffer = await response.arrayBuffer();
       const base64 = Buffer.from(imageBuffer).toString('base64');
 
-      // Параллельно: анализируем фото и загружаем на telegra.ph
+      // Параллельно: анализируем фото и загружаем на catbox.moe для поиска по картинке
       const [query, publicUrl] = await Promise.all([
         analyzePhoto(base64, telegramId),
-        uploadToTelegraph(imageBuffer),
+        uploadForVisualSearch(fileLink),
       ]);
 
       await bot.deleteMessage(chatId, statusMsg.message_id);
@@ -113,15 +113,11 @@ export function registerPhotoHandler(bot: TelegramBot): void {
         current_query: query as SearchQuery,
       });
 
-      // Кнопки поиска по изображению
+      // Кнопки поиска по картинке — ищут визуально на всех платформах
       const imageButtons = publicUrl ? [
-        [
-          { text: '🔍 Яндекс: похожие вещи', url: `https://yandex.ru/images/search?rpt=imageview&url=${encodeURIComponent(publicUrl)}` },
-        ],
-        [
-          { text: '🔍 Google Lens', url: `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(publicUrl)}` },
-        ],
-      ] : [];
+        [{ text: '🔍 Яндекс — похожее на WB, Lamoda, Ali', url: `https://yandex.ru/images/search?rpt=imageview&url=${encodeURIComponent(publicUrl)}` }],
+        [{ text: '🔍 Google Lens — глобальный поиск', url: `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(publicUrl)}` }],
+      ] : [[{ text: '🔍 Яндекс поиск по фото', url: 'https://yandex.ru/images' }]];
 
       await bot.sendMessage(chatId, MESSAGES.confirmQuery(query), {
         parse_mode: 'Markdown',

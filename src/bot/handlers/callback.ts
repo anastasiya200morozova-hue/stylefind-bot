@@ -78,6 +78,18 @@ export function registerCallbackHandler(bot: TelegramBot): void {
         await bot.sendMessage(chatId, 'окей, не добавляем 👌');
       } else if (data === 'search_more') {
         await bot.sendMessage(chatId, '🔍 окей! напиши что ищем или скинь фото');
+      } else if (data === 'new_outfit') {
+        await updateSession(telegramId, {
+          state: 'collecting_outfit',
+          current_query: { type: 'photo', item_type: '', color: null, style: null, additional_details: null, outfit_photo_ids: [] } as never,
+        });
+        await bot.sendMessage(chatId,
+          `✨ *новый образ!*\n\nотправляй фото по одному — скриншоты с pinterest или фото готового образа 📸`,
+          {
+            parse_mode: 'Markdown',
+            reply_markup: { inline_keyboard: [[{ text: '🔍 найти образ', callback_data: 'analyze_outfit' }]] },
+          }
+        );
       } else if (data === 'view_capsule') {
         await handleViewCapsule(bot, chatId, telegramId);
       } else if (data === 'analyze_outfit') {
@@ -140,7 +152,7 @@ async function handleOutfitSearch(bot: TelegramBot, chatId: number, telegramId: 
   await saveSearchResults(telegramId, session.id, allProducts);
   await updateSession(telegramId, { state: 'browsing_results' });
 
-  await bot.sendMessage(chatId, `✨ *собрала образ — ${allProducts.length} вещей* 👇`, { parse_mode: 'Markdown' });
+  await bot.sendMessage(chatId, `✨ *собрала образ — ${allProducts.length} вещей* 👇\n\n_➕ добавляй понравившееся в подборку_`, { parse_mode: 'Markdown' });
 
   for (const product of allProducts.slice(0, 10)) {
     const storeLabel = product.source === 'wildberries' ? 'Wildberries' : 'Lamoda';
@@ -157,6 +169,17 @@ async function handleOutfitSearch(bot: TelegramBot, chatId: number, telegramId: 
       });
     }
   }
+
+  // Кнопки после всех карточек
+  await bot.sendMessage(chatId, 'что дальше?', {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '📋 посмотреть подборку', callback_data: 'view_capsule' }],
+        [{ text: '✨ новый образ', callback_data: 'new_outfit' }],
+        [{ text: '🔍 искать по описанию', callback_data: 'search_more' }],
+      ],
+    },
+  });
 }
 
 async function handleAnalyzeOutfit(bot: TelegramBot, chatId: number, telegramId: number) {

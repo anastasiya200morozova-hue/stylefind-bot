@@ -139,13 +139,25 @@ export async function analyzeOutfit(
   telegramId: number
 ): Promise<OutfitItem[]> {
   const start = Date.now();
-  const prompt = `Ты помощник стилиста. На фото показан образ (outfit). Определи ВСЕ вещи в образе и верни ТОЛЬКО JSON без markdown:
+  const prompt = `Ты опытный стилист. Внимательно изучи фото образа и определи все предметы одежды и обуви.
+
+Верни ТОЛЬКО JSON без markdown:
 {
   "items": [
-    {"item_type": "тип вещи по-русски", "color": "цвет по-русски", "style": "casual|business|sport|evening|streetwear", "additional_details": "детали (макс 8 слов)"}
+    {
+      "item_type": "максимально точный тип вещи по-русски (например: широкие джинсы, оверсайз худи, кожаные ботинки)",
+      "color": "точный цвет по-русски",
+      "style": "casual|business|sport|evening|streetwear",
+      "additional_details": "силуэт, фасон, длина, особенности (макс 10 слов)"
+    }
   ]
 }
-Включай только одежду и обувь. Не включай аксессуары типа сумок.`;
+
+Правила:
+- Включай только одежду и обувь
+- Будь максимально конкретным в названии (не просто "брюки", а "широкие брюки прямой крой")
+- Описывай именно то что видишь на фото
+- Если несколько фото — определи уникальные вещи из всех фото`;
 
   try {
     const client = getClient();
@@ -155,8 +167,8 @@ export async function analyzeOutfit(
     }));
 
     const response = await client.chat.completions.create({
-      model: 'gpt-4o-mini',
-      max_tokens: 500,
+      model: 'gpt-4o',
+      max_tokens: 600,
       messages: [{
         role: 'user',
         content: [...imageContent, { type: 'text' as const, text: prompt }],

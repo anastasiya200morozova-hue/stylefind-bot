@@ -26,7 +26,7 @@ function handleOutfit(bot: TelegramBot) {
       current_query: { type: 'photo', item_type: '', color: null, style: null, additional_details: null, outfit_photo_ids: [] } as never,
     });
     await bot.sendMessage(msg.chat.id,
-      `✨ *режим сборки образа*\n\nпришли до 5 фото — скриншоты с pinterest или референсы готового образа 📸\n\n_когда пришлёшь все фото — нажми кнопку ниже_`,
+      `✨ *режим сборки образа*\n\nотправляй фото по одному — скриншоты с pinterest или фото готового образа 📸\n\n_можно до 5 штук — чем больше, тем точнее результат_\n_когда пришлёшь все — нажми кнопку ниже_`,
       {
         parse_mode: 'Markdown',
         reply_markup: {

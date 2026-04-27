@@ -18,11 +18,12 @@ import {
 // Определяем тип ссылки
 const WB_REGEX = /wildberries\.ru\/catalog\/(\d+)/;
 const LAMODA_REGEX = /lamoda\.ru\/p\/([a-z0-9]+)/i;
+const ALI_REGEX = /aliexpress\.(ru|com)\/item\/(\d+)/i;
 const PINTEREST_REGEX = /pinterest\.(ru|com)\/pin\//i;
 const URL_REGEX = /https?:\/\/[^\s]+/i;
 
 interface LinkInfo {
-  type: 'wildberries' | 'lamoda' | 'pinterest' | 'unknown';
+  type: 'wildberries' | 'lamoda' | 'aliexpress' | 'pinterest' | 'unknown';
   url: string;
   productId?: string;
 }
@@ -37,6 +38,9 @@ function detectLink(text: string): LinkInfo | null {
 
   const lamodaMatch = url.match(LAMODA_REGEX);
   if (lamodaMatch) return { type: 'lamoda', url, productId: lamodaMatch[1] };
+
+  const aliMatch = url.match(ALI_REGEX);
+  if (aliMatch) return { type: 'aliexpress', url, productId: aliMatch[2] };
 
   if (PINTEREST_REGEX.test(url)) return { type: 'pinterest', url };
 
@@ -214,8 +218,39 @@ export function registerTextHandler(bot: TelegramBot): void {
           return;
         }
 
+        if (link.type === 'aliexpress' && link.productId) {
+          const statusMsg = await bot.sendMessage(chatId, '🔍 смотрю что это за вещь...');
+          const info = await fetchLamodaProduct(link.url); // OG парсинг работает и для Ali
+          await bot.deleteMessage(chatId, statusMsg.message_id);
+
+          const name = info?.name?.replace(' | AliExpress', '').replace(' on AliExpress', '').trim() ?? 'Товар с AliExpress';
+          const price = info?.price ?? 0;
+          const imageUrl = info?.image_url ?? '';
+          const priceText = price > 0 ? ` · ${price.toLocaleString('ru-RU')} ₽` : '';
+
+          const productId = `ali_url_${link.productId}`;
+          await clearSearchResults(telegramId);
+          await saveSearchResults(telegramId, session.id, [{
+            product_id: productId, source: 'wildberries', // используем как общий источник
+            name, price, url: link.url, image_url: imageUrl,
+          }]);
+
+          await bot.sendMessage(chatId,
+            `🔥 *${name}*${priceText}\n_AliExpress_\n\nдобавить в подборку?`,
+            {
+              parse_mode: 'Markdown',
+              reply_markup: {
+                inline_keyboard: [[
+                  { text: '✅ добавить', callback_data: `add_to_capsule:${productId}:wildberries` },
+                  { text: '❌ не надо', callback_data: 'cancel_url' },
+                ]],
+              },
+            });
+          return;
+        }
+
         await bot.sendMessage(chatId,
-          'не знаю эту ссылку 😅 могу искать по wildberries и lamoda — напиши что ищешь');
+          'не знаю эту ссылку 😅 могу искать по wildberries, lamoda и aliexpress — напиши что ищешь');
         return;
       }
 

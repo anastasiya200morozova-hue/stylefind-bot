@@ -3,8 +3,8 @@ import type TelegramBot from 'node-telegram-bot-api';
 export function confirmKeyboard(): TelegramBot.InlineKeyboardMarkup {
   return {
     inline_keyboard: [[
-      { text: '✅ Верно', callback_data: 'confirm_query' },
-      { text: '✏️ Уточнить', callback_data: 'edit_query' },
+      { text: '✅ верно', callback_data: 'confirm_query' },
+      { text: '✏️ уточнить', callback_data: 'edit_query' },
     ]],
   };
 }

@@ -1,7 +1,7 @@
 import type TelegramBot from 'node-telegram-bot-api';
 import { isAuthorized } from '../../utils/auth';
 import { MESSAGES } from '../messages';
-import { confirmKeyboard } from '../keyboards';
+// confirmKeyboard заменена инлайн-клавиатурой с кнопками Яндекс/Google
 import { analyzePhoto } from '../../services/gemini';
 import { getOrCreateSession, updateSession } from '../../services/supabase';
 import type { SearchQuery } from '../../types';
@@ -73,7 +73,8 @@ export function registerPhotoHandler(bot: TelegramBot): void {
       const response = await fetch(fileLink, { signal: AbortSignal.timeout(15000) });
       if (!response.ok) throw new Error('Не удалось скачать фото');
 
-      const base64 = Buffer.from(await response.arrayBuffer()).toString('base64');
+      const imageBuffer = await response.arrayBuffer();
+      const base64 = Buffer.from(imageBuffer).toString('base64');
       const query = await analyzePhoto(base64, telegramId);
 
       await bot.deleteMessage(chatId, statusMsg.message_id);
@@ -88,9 +89,24 @@ export function registerPhotoHandler(bot: TelegramBot): void {
         current_query: query as SearchQuery,
       });
 
+      // Яндекс поиск по фото через публичный Telegram CDN URL
+      const yandexUrl = `https://yandex.ru/images/search?rpt=imageview&url=${encodeURIComponent(fileLink)}`;
+      const googleUrl = `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(fileLink)}`;
+
       await bot.sendMessage(chatId, MESSAGES.confirmQuery(query), {
         parse_mode: 'Markdown',
-        reply_markup: confirmKeyboard(),
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '✅ верно', callback_data: 'confirm_query' },
+              { text: '✏️ уточнить', callback_data: 'edit_query' },
+            ],
+            [
+              { text: '🔍 Яндекс: похожие', url: yandexUrl },
+              { text: '🔍 Google Lens', url: googleUrl },
+            ],
+          ],
+        },
       });
     } catch (err) {
       console.error('[photo handler]', err instanceof Error ? err.message : err);

@@ -40,12 +40,14 @@ function getClient(): OpenAI {
   return new OpenAI({ apiKey });
 }
 
-const PHOTO_PROMPT = `Ты помощник стилиста. Проанализируй вещь на фото и верни ТОЛЬКО JSON без markdown:
+const PHOTO_PROMPT = `Ты опытный стилист и знаешь как искать одежду на wildberries и lamoda.
+Проанализируй вещь на фото и верни ТОЛЬКО JSON без markdown:
 {
   "item_type": "тип вещи по-русски (пальто, джинсы, платье и т.д.)",
   "color": "основной цвет по-русски",
   "style": "casual | business | sport | evening | streetwear",
-  "additional_details": "краткое описание: силуэт, длина, фактура (макс 10 слов)"
+  "additional_details": "силуэт, длина, фактура (макс 10 слов)",
+  "search_query": "готовый поисковый запрос для wildberries — максимально точный, как реально ищут на маркетплейсе. Например: широкие джинсы прямой крой черные оверсайз женские"
 }`;
 
 const TEXT_PROMPT = (text: string) => `Пользователь ищет вещь одежды. Его описание: "${text}"
@@ -63,6 +65,7 @@ function parseJson(text: string): SearchQuery | null {
     const parsed = JSON.parse(clean) as {
       item_type?: string; color?: string | null;
       style?: string | null; additional_details?: string | null;
+      search_query?: string | null;
     };
     if (!parsed.item_type) return null;
     return {
@@ -70,7 +73,8 @@ function parseJson(text: string): SearchQuery | null {
       item_type: parsed.item_type,
       color: parsed.color ?? null,
       style: (parsed.style as ItemStyle) ?? null,
-      additional_details: parsed.additional_details ?? null,
+      // Используем search_query как additional_details для лучшего поиска
+      additional_details: parsed.search_query ?? parsed.additional_details ?? null,
     };
   } catch { return null; }
 }

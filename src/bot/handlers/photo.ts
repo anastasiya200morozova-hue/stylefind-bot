@@ -1,10 +1,29 @@
 import type TelegramBot from 'node-telegram-bot-api';
 import { isAuthorized } from '../../utils/auth';
 import { MESSAGES } from '../messages';
-// confirmKeyboard заменена инлайн-клавиатурой с кнопками Яндекс/Google
 import { analyzePhoto } from '../../services/gemini';
 import { getOrCreateSession, updateSession } from '../../services/supabase';
 import type { SearchQuery } from '../../types';
+
+// Загружаем фото на telegra.ph и получаем публичный URL для поиска по картинке
+async function uploadToTelegraph(imageBuffer: ArrayBuffer): Promise<string | null> {
+  try {
+    const formData = new FormData();
+    const blob = new Blob([imageBuffer], { type: 'image/jpeg' });
+    formData.append('file', blob, 'photo.jpg');
+
+    const resp = await fetch('https://telegra.ph/upload', {
+      method: 'POST',
+      body: formData,
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json() as Array<{ src: string }>;
+    return data[0]?.src ? `https://telegra.ph${data[0].src}` : null;
+  } catch {
+    return null;
+  }
+}
 
 const MAX_PHOTO_SIZE = 20 * 1024 * 1024;
 
@@ -75,7 +94,12 @@ export function registerPhotoHandler(bot: TelegramBot): void {
 
       const imageBuffer = await response.arrayBuffer();
       const base64 = Buffer.from(imageBuffer).toString('base64');
-      const query = await analyzePhoto(base64, telegramId);
+
+      // Параллельно: анализируем фото и загружаем на telegra.ph
+      const [query, publicUrl] = await Promise.all([
+        analyzePhoto(base64, telegramId),
+        uploadToTelegraph(imageBuffer),
+      ]);
 
       await bot.deleteMessage(chatId, statusMsg.message_id);
 
@@ -89,22 +113,25 @@ export function registerPhotoHandler(bot: TelegramBot): void {
         current_query: query as SearchQuery,
       });
 
-      // Яндекс поиск по фото через публичный Telegram CDN URL
-      const yandexUrl = `https://yandex.ru/images/search?rpt=imageview&url=${encodeURIComponent(fileLink)}`;
-      const googleUrl = `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(fileLink)}`;
+      // Кнопки поиска по изображению
+      const imageButtons = publicUrl ? [
+        [
+          { text: '🔍 Яндекс: похожие вещи', url: `https://yandex.ru/images/search?rpt=imageview&url=${encodeURIComponent(publicUrl)}` },
+        ],
+        [
+          { text: '🔍 Google Lens', url: `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(publicUrl)}` },
+        ],
+      ] : [];
 
       await bot.sendMessage(chatId, MESSAGES.confirmQuery(query), {
         parse_mode: 'Markdown',
         reply_markup: {
           inline_keyboard: [
             [
-              { text: '✅ верно', callback_data: 'confirm_query' },
+              { text: '✅ верно — ищем!', callback_data: 'confirm_query' },
               { text: '✏️ уточнить', callback_data: 'edit_query' },
             ],
-            [
-              { text: '🔍 Яндекс: похожие', url: yandexUrl },
-              { text: '🔍 Google Lens', url: googleUrl },
-            ],
+            ...imageButtons,
           ],
         },
       });
